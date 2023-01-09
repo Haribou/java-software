@@ -5,7 +5,6 @@ import java.util.Map.Entry;
 import javax.annotation.PreDestroy;
 
 import org.apache.log4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -18,11 +17,10 @@ import one.microstream.storage.embedded.types.EmbeddedStorageManager;
 
 @SpringBootApplication
 @RestController
-public class Tester implements CommandLineRunner 
+public class Tester implements CommandLineRunner
 {
 	private static final Logger LOG = Logger.getLogger(Tester.class);
 
-	@Autowired
 	private EmbeddedStorageManager microStreamStorageManager;
 	
 	private StateData stateData;
@@ -46,7 +44,7 @@ public class Tester implements CommandLineRunner
 			if (value == null)
 			{
 				stateData.getStateData().put(keyField, valueField);
-				microStreamStorageManager.storeRoot();
+				stateData.save(microStreamStorageManager);
 				LOG.debug("Updated state");
 			}
 			
@@ -56,11 +54,18 @@ public class Tester implements CommandLineRunner
 		}
 	}
 	
+	public Tester(EmbeddedStorageManager embeddedStorageManager, StateData stateData)
+	{
+		microStreamStorageManager = embeddedStorageManager;
+		this.stateData = stateData;
+		LOG.debug("State data:");
+		for (Entry<String, String> oneEntry: stateData.getStateData().entrySet())
+			LOG.debug(oneEntry.getKey() + " => " + oneEntry.getValue());
+	}
+	
 	@Override
 	public void run(String... args) throws Exception
 	{
-		stateData = (StateData) microStreamStorageManager.root();
-		
 		LOG.info("MicroStreamTester started successfully");
 	}
 	
@@ -71,11 +76,6 @@ public class Tester implements CommandLineRunner
 		
 		return "Updated embedded storage";
 	}
-		
-	public static void main(String[] args)
-	{
-		SpringApplication.run(Tester.class, args);
-	}
 
 	@PreDestroy
 	public void shutdown() 
@@ -83,5 +83,10 @@ public class Tester implements CommandLineRunner
 		microStreamStorageManager.shutdown();
 	
 		LOG.info("MicroStreamTester shutting down");
+	}
+	
+	public static void main(String[] args)
+	{
+		SpringApplication.run(Tester.class, args);
 	}
 }

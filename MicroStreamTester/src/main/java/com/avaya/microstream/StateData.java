@@ -5,6 +5,7 @@ import java.util.HashMap;
 import org.apache.log4j.Logger;
 
 import one.microstream.integrations.spring.boot.types.Storage;
+import one.microstream.storage.embedded.types.EmbeddedStorageManager;
 
 @Storage
 public class StateData
@@ -21,5 +22,10 @@ public class StateData
 	public HashMap<String, String> getStateData()
 	{
 		return stateDataField;
+	}
+	
+	public void save(EmbeddedStorageManager storageManager)
+	{
+		storageManager.store(stateDataField);
 	}
 }
