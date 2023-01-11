@@ -1,0 +1,19 @@
+# Streaming metric: counting retweets
+
+debug: off;
+
+constants:
+
+;
+
+variables:
+
+retweetCount: 0;
+
+updateRules:
+
+retweetCount: @["retweeted_status"] notNull: retweetCount + 1;
+
+outputRules:
+
+retweets:: retweetCount;

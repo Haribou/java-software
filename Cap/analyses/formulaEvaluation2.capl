@@ -1,0 +1,29 @@
+# Formula evaluator using JSON input.
+
+debug: off;
+
+constants:
+
+;
+
+variables:
+
+;
+
+updateRules:
+
+;
+
+outputRules:
+
+# Format of output rules:
+# label:: expression
+
+dataAverage:: @avg * 100,
+dataMin:: @min,
+dataMax:: @max,
+dataMinMaxRatio:: @min / @max,
+dataSum:: @sum,
+sortedDataDescKeys:: @sortDescKeys,
+sortedDataAscValues:: @sortAscValues,
+histogram:: @histo(-100, 100, 5);

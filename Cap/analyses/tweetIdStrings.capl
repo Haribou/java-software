@@ -1,0 +1,23 @@
+# Sentiment evolution for tweets. We measure the average sentiment of all tweets per time window and track the averages over all time windows.
+
+settings:
+
+debug: 					false,
+recording: 				false;
+
+constants:
+
+OUTPUT_AT:				100099;
+
+variables:
+
+mismatches:				0;
+
+updateRules:
+
+mismatches:				@["id"] ~ @["id_str"] stringToNumber:					mismatches + 1;
+
+outputRules:
+
+totalNumberMismatches:	numEvents > OUTPUT_AT:									mismatches,
+fractionMismatches:		numEvents > OUTPUT_AT:									100 * mismatches / numEvents + "%";

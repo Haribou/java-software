@@ -1,0 +1,59 @@
+	# Sentiment evolution for tweets. We measure the average sentiment of all tweets per time window and track the averages over all time windows.
+
+settings:
+
+debug: 					false,
+recording: 				false;
+
+constants:
+
+PSYLING_URL:			"http://psyling.eastus2.azurecontainer.io:3004/sentiment",
+HTTP_HEADERS: 			map("token": "904144b818b21dac52384aaac96dc5317f58a489"),
+TIME_WINDOW_MS:			900000,
+MAX_NUM_TIME_WINDOWS:	100000,
+DATE_FORMAT:			"yyyy-MM-dd HH:mm:ss",
+SENTIMENT_HISTO_WIDTH:	0.025,
+VOLUME_HISTO_WIDTH:		10;
+
+variables:
+
+httpParameters: 		map("dictionary": "afinn"),
+isRetweet:				false,
+hasExtendedText:		false,
+tweet:					"",
+firstTimestamp:			@["timestamp_ms"] stringToNumber,
+sentiment:				0,
+sentimentsTimeWindow:	list,
+sentimentAverages:		list[MAX_NUM_TIME_WINDOWS],
+numberTweets:			list[MAX_NUM_TIME_WINDOWS],
+currentTimeWindow:		0,
+lastTimeWindow:			0,
+sentimentAvg: 			0,
+histoMap:				map,
+aggregatedSentiment:	0;
+
+updateRules:
+
+isRetweet:: 																@["retweeted_status"] exists,
+hasExtendedText: 		!isRetweet: 										@["extended_tweet"] exists,
+tweet: 					!isRetweet & hasExtendedText: 						@["extended_tweet"]["full_text"],
+tweet: 					!isRetweet & !hasExtendedText: 						@["text"],
+: 						!isRetweet:											httpParameters add("text": tweet),
+sentiment:				!isRetweet: 										get(PSYLING_URL, httpParameters, HTTP_HEADERS)["sentiment_score"] max,
+aggregatedSentiment:	!isRetweet:											aggregatedSentiment + sentiment,
+:						!isRetweet: 										sentimentsTimeWindow add(sentiment),
+currentTimeWindow:		!isRetweet:											@["timestamp_ms"] numberToTimeWindow(firstTimestamp, TIME_WINDOW_MS),
+sentimentAvg:			!isRetweet & currentTimeWindow > lastTimeWindow:	sentimentsTimeWindow avg,
+:						!isRetweet & currentTimeWindow > lastTimeWindow:	histoMap add(@["timestamp_ms"] numberToDate(DATE_FORMAT): sentimentAvg),
+:						!isRetweet & currentTimeWindow > lastTimeWindow:	sentimentAverages add(sentimentAvg),
+:						!isRetweet & currentTimeWindow > lastTimeWindow:	numberTweets add(sentimentsTimeWindow count),
+:						!isRetweet & currentTimeWindow > lastTimeWindow:	sentimentsTimeWindow removeAll,
+lastTimeWindow:			!isRetweet:											currentTimeWindow;
+
+outputRules:
+
+sentimentEvolution:		!isRetweet & sentimentsTimeWindow count = 0:		sentimentAverages,
+sentimentHisto:			!isRetweet & sentimentsTimeWindow count = 0:		histoMap histo(0, 1 // SENTIMENT_HISTO_WIDTH, SENTIMENT_HISTO_WIDTH),
+sentimentAverage:		!isRetweet & sentimentsTimeWindow count = 0:		aggregatedSentiment / numEvents,
+tweetVolumes:			!isRetweet & sentimentsTimeWindow count = 0:		numberTweets,
+tweetVolumesHisto:		!isRetweet & sentimentsTimeWindow count = 0:		numberTweets histo(0, numberTweets max // VOLUME_HISTO_WIDTH, VOLUME_HISTO_WIDTH);

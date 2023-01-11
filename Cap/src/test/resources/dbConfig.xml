@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<dbInterface on="true">
+	<serverAddress>localhost</serverAddress>
+	<portNumber>5432</portNumber>
+	<userName>postgres</userName>
+	<password>password</password>
+	<databaseName>slatecore</databaseName>
+	<schemaName>slate</schemaName>
+	<jdbcConnectionStringPrefix>jdbc:postgresql:</jdbcConnectionStringPrefix>
+	<jdbcDriverClassName>org.postgresql.Driver</jdbcDriverClassName>
+	<deployId>dev</deployId>
+	<tableReferences>
+		<gatewayConfig>gatewayconfig</gatewayConfig>
+		<tenantConfig>gatewayconfig</tenantConfig>
+	</tableReferences>
+</dbInterface>

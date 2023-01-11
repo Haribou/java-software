@@ -1,0 +1,110 @@
+# A simple realtime conversational analysis for a single conversation. The analysis tracks customer input length, conversation "length", customer think time, bot/agent response time.
+
+settings:
+
+debug: false,
+recording: false,
+expires: 7 * 24 * 60;
+
+constants:
+
+OUTPUT_WEBHOOK_URL: "https://webhook.site/e55bb124-ab82-4c2e-90bd-b63028742386";
+
+variables:
+
+isInput: true,
+inputs: 0,
+inputsLength: 0,
+outputs: 0,
+outputsLength: 0,
+thinkTimes: list[],
+responseTimes: list[],
+postPayload: map[]("analysis": "individualConversationIndicatorsAnalysis", "virtualAgentId": "spacesConnector"),
+lastInputTime: 0,
+ignoreOutput: false,
+endOfConversation: false,
+responseTime: 0,
+maxResponseTimeOutput: "",
+maxResponseTime: 0;
+
+updateRules:
+
+:
+	isInput:
+		@["direction"] = "in" \
+	ignoreOutput:
+		!isInput & @["text"] contains("\(.+\)") \
+	endOfConversation:
+		!isInput & @["text"] contains(".*goodbye.*"),
+		
+isInput:
+	inputs:
+		inputs + 1 \
+	inputsLength:
+		inputsLength + @["text"] count,
+	
+!isInput:	
+	outputs:
+		outputs + 1 \
+	outputsLength:
+		outputsLength + @["text"] count,
+
+isInput & lastInputTime > 0:
+	:
+		thinkTimes add((now - lastInputTime) / 1000),
+	
+!isInput & !ignoreOutput & !endOfConversation & lastInputTime > 0:	
+	responseTime:
+		now - lastInputTime 
+		else
+		0,
+	
+responseTime > 0:	
+	:
+		responseTimes add(responseTime / 1000),
+		
+responseTime > maxResponseTime:
+	maxResponseTimeOutput:
+		@["text"] \
+	maxResponseTime:
+		responseTime,
+	
+endOfConversation:	
+	:
+		postPayload add("numInputs": inputs,
+						"totalInputLengthCharacters": inputsLength,
+						"numOutputs": outputs,
+						"totalOutputLengthCharacters": outputsLength,
+						"numDialogTurns": inputs + outputs,
+						"avgCustomerThinkTimeSec": thinkTimes avg,
+						"maxCustomerThinkTimeSec": thinkTimes max,
+						"avgResponseTimeSec": responseTimes avg,
+						"maxResponseTimeSec": responseTimes max,
+						"minResponseTimeSec": responseTimes min,
+						"stdDevResponseTimeSec": responseTimes stdDev,
+						"maxResponseTimeAtOuput": maxResponseTimeOutput, 
+						"timestamp": now numberToDate("yyyy-MM-dd HH:mm:ss")) \
+		post(OUTPUT_WEBHOOK_URL, "", postPayload) \
+	lastInputTime:
+		0 \
+	inputs:
+		0 \
+	inputsLength:
+		0 \
+	outputs:
+		0 \
+	outputsLength:	
+		0 \
+	:
+		thinkTimes removeAll \
+		responseTimes removeAll,
+	
+isInput:	
+	lastInputTime:
+		now,
+
+outputRules:
+
+endOfConversation:
+	analysis:
+		postPayload;

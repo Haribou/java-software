@@ -1,0 +1,85 @@
+# Tracks the timing of flow entry in a Virtual Agent Studio agent for a single session.
+
+settings:
+
+debug: false,
+recording: false,
+expires: 30 * 24 * 60;
+
+constants:
+
+# WEBHOOK_URL: "https://webhook.site/30dcb84f-1376-4884-8570-f275324dbe00";
+;
+
+variables:
+
+sessionMilestoneElapsedTimesSec: map[],
+postPayload: map[]("analysisId": "milestoneAnalysis", "vaId": @["agentId"], "userId": @["platformPayload"]["userId"], "sessionId": @["sessionId"]),
+sendToNextStage: map[]("vaId": @["agentId"], "userId": @["platformPayload"]["userId"], "sessionId": @["sessionId"]),
+actionable: false,
+elapsedMilestoneTimesSec: list[],
+lastMilestoneTime: now,
+elapsedTimeSec: 0,
+longestElapsedTimeSec: 0,
+longestElapsedTimeAt: "NA",
+shortestElapsedTimeSec: 0,
+shortestElapsedTimeAt: "NA";
+
+updateRules:
+
+:
+	actionable:
+		@["eventId"] contains("-start$"),
+	
+actionable & !sessionMilestoneElapsedTimesSec[@["sessionId"]] exists:	
+	:
+		sessionMilestoneElapsedTimesSec add(@["sessionId"]: list[]),
+
+actionable:
+	elapsedTimeSec:
+		(now - lastMilestoneTime) / 1000,
+	
+actionable & elapsedTimeSec > longestElapsedTimeSec:	
+	longestElapsedTimeAt:
+		@["eventId"] \
+	longestElapsedTimeSec:
+		elapsedTimeSec,
+		
+actionable & elapsedTimeSec < shortestElapsedTimeSec:
+	shortestElapsedTimeAt:
+		@["eventId"],
+	
+actionable & (elapsedTimeSec < shortestElapsedTimeSec | shortestElapsedTimeSec = 0):	
+	shortestElapsedTimeSec:
+		elapsedTimeSec,
+
+actionable & elapsedTimeSec > 0:
+	:
+		elapsedMilestoneTimesSec add(elapsedTimeSec),
+
+actionable:
+	:
+		sessionMilestoneElapsedTimesSec[@["platformPayload"]["sessionId"]] add(@["eventId"] + ": " + elapsedTimeSec) \
+	:
+		postPayload add("sessionMilestoneElapsedTimesSec": sessionMilestoneElapsedTimesSec[@["platformPayload"]["sessionId"]], 
+						"minMilestoneElapsedTimeSec": elapsedMilestoneTimesSec min, 
+						"maxMilestoneElapsedTimeSec": elapsedMilestoneTimesSec max,
+						"avgMilestoneElapsedTimeSec": elapsedMilestoneTimesSec avg,
+						"stdDevMilestoneElapsedTimeSec": elapsedMilestoneTimesSec stdDev,
+						"sumMilestoneElapsedTimesSec": elapsedMilestoneTimesSec sum,
+						"longestElapsedTimeSec": longestElapsedTimeSec, "longestElapsedTimeAt": longestElapsedTimeAt,
+						"shortestElapsedTimeSec": shortestElapsedTimeSec, "shortestElapsedTimeAt": shortestElapsedTimeAt) \
+		:
+			sendToNextStage add("milestone": @["eventId"], "elapsedTimeSec": elapsedTimeSec) \
+	lastMilestoneTime:
+		now;
+		
+#:
+#	actionable:								
+#		post(WEBHOOK_URL, "", postPayload);
+						
+outputRules:
+
+actionable:
+	individualAnalysis:
+		sendToNextStage;

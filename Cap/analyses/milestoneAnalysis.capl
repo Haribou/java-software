@@ -1,0 +1,39 @@
+# A simple realtime conversational analysis for all conversations in a time window, plus histograms for conversation numbers and trouble scores for all of history.
+
+settings:
+
+debug: false,
+recording: false,
+expires: 30 * 24 * 60;
+
+constants:
+
+WEBHOOK_URL: "https://webhook.site/c9783647-e407-4dec-af61-c98afdc251fe",
+TIME_WINDOW: 30;
+
+variables:
+
+sessionMilestones: map{ TIME_WINDOW },
+postPayload: map[]("analysisId": "milestoneAnalysis", "vaId": @["agentId"], "label": "Milestone Live Tracker"),
+actionable: false;
+
+updateRules:
+
+:
+	actionable:
+		@["eventId"] contains("-start$"),
+	
+actionable & !sessionMilestones[@["platformPayload"]["sessionId"]] exists:	
+	:
+		sessionMilestones add(@["platformPayload"]["sessionId"]: list[]),
+
+actionable:
+	:
+		sessionMilestones[@["platformPayload"]["sessionId"]] add(@["eventId"]) \
+		postPayload add("sessionMilestones": sessionMilestones[@["platformPayload"]["sessionId"]]);
+						
+outputRules:
+
+:
+	:								
+		post(WEBHOOK_URL, "", postPayload);

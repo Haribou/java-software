@@ -1,0 +1,21 @@
+
+{
+	"TPPID": "fe142c11-ea62-4559-addb-6718a5111980",
+	"Marriott_stay": "Westin",
+	"Marriott_segment": "Upper Midscale",
+	"Days_stayed_last_60_days": "3",
+	"Days_stayed_last_180_days": "3",
+	"Number_of_stays_last_180_days": "1",
+	"Days_stayed_last_2_years": "2",
+	"Loyalty_level": "Low",
+	"Competitor_stayed": "Crowne Plaza",
+	"Competitor_segment": "Upper Midscale",
+	"Competitor_Number_of_stays_last_2_years": "5",
+	"Competitor_Days_stayed_last_2_years": "7",
+	"Home_State": "IL",
+	"Home_ZIP": "60614",
+	"Home_airport": "Chicago MDW",
+	"Travel_style": "Business",
+	"Lifestyle": "High Income",
+	"Special_interest": "Pet Owner"
+}

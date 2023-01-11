@@ -1,0 +1,38 @@
+# Conversation Statistics
+# Measures basic conversational metrics.
+
+constants:
+
+COLLECTION_SIZE: 100000,
+OUTPUT_EVERY: 10;
+
+variables:
+
+tweetersSet: set[COLLECTION_SIZE],
+interArrivalTimesList: list[COLLECTION_SIZE],
+lastTweetTime: now,
+tweetTimesMap: map[COLLECTION_SIZE],
+responseTime: 0,
+responseTimeList: list[COLLECTION_SIZE],
+responses: 0;
+
+updateRules:
+
+:: tweetersSet add(@["user"]["screen_name"]),
+:: interArrivalTimesList add(now - lastTweetTime), 
+:: tweetTimesMap add(@["id_str"]: now),
+responseTime: @["in_reply_to_status_id_str"] notNull & tweetTimesMap contains (@["in_reply_to_status_id_str"]): (now - tweetTimesMap[@["in_reply_to_status_id_str"]]) / 1000 else 0,
+: responseTime > 0: responseTimeList add(responseTime),
+responses: responseTime > 0: responses + 1,
+lastTweetTime:: now;
+
+outputRules:
+
+tweetCount:: tweetTimesMap count,
+tweeterCount:: tweetersSet count,
+tweetsPerTweeter:: tweetTimesMap count / tweetersSet count,
+interArrivalTimesHistogram: numEvents % OUTPUT_EVERY = 0 & interArrivalTimesList count > 0: interArrivalTimesList histo(0, 120, 60),
+minResponseTime: numEvents % OUTPUT_EVERY = 0 & responseTimeList count > 0: responseTimeList min,
+maxResponsTime: numEvents % OUTPUT_EVERY = 0 & responseTimeList count > 0: responseTimeList max,
+avgResponseTime: numEvents % OUTPUT_EVERY = 0 & responseTimeList count > 0: responseTimeList avg,
+responseRate: numEvents % OUTPUT_EVERY = 0: responses / (tweetTimesMap count - responses);

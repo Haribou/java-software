@@ -1,0 +1,48 @@
+# Determine key metrics for a given Twitter data collection.
+
+settings: 			
+
+debug:																									true,
+recording:																								false,
+expires:																								180 * 24 * 60;
+	
+constants:	
+
+BUSINESSES:																								set("SiemensHome","SiemensHomeDE","SiemensHomeUK","BoschHomeUS","BoschHomeDE","BoschHomeUK","NEFFHomeUK","gaggenau","Gaggenau_US","WhirlpoolCorp","whirlpoolusa","WhirlpoolUK","WhirlpoolCare","MieleProf","MieleUSA","Miele_GB"),
+
+WATCH_WORDS:																							set("army","aggression","aggressor","russia","army","ukrain","war","invasion","invade","destroy","soldiers","weapons","criminals","putin","shame","blood","ukrainian","ban","civilians","kill","terrorist","boycott","murder","genocide","destroy","peace","bomb","die","crime"),
+
+TOP_PCT: 																								10,
+EVENT_WINDOW:																							100000,
+TIME_INTERVAL_LENGTH_MS:																				24 * 60 * 60000;
+
+variables:
+
+retweet:																								false,
+hasExtendedText:																						false,
+tweet:																									"",
+tweets: 																								list[EVENT_WINDOW],
+eligibleCustomerTweet:																					false,
+numEligibleCustomerTweets:																				0,
+tweetDistribution:																						map[EVENT_WINDOW],
+numTweetsWithWatchWords:																				0,
+userMentions:																							0;
+
+updateRules:
+retweet::	 																							@["retweeted_status"] exists,
+hasExtendedText:: 																						!retweet & @["extended_tweet"] exists,
+tweet: 							hasExtendedText: 														@["extended_tweet"]["full_text"],
+tweet: 							!hasExtendedText: 														@["text"],
+eligibleCustomerTweet::																					!retweet & !BUSINESSES contains(@["user"]["screen_name"]),
+numEligibleCustomerTweets:		eligibleCustomerTweet:													numEligibleCustomerTweets + 1,
+: 								eligibleCustomerTweet: 													tweets add(tweet),
+numTweetsWithWatchWords:		eligibleCustomerTweet & tweet containsSome?(WATCH_WORDS):				numTweetsWithWatchWords + 1,
+userMentions:					eligibleCustomerTweet:													userMentions + @["entities"]["user_mentions"]["screen_name"] count;
+
+outputRules:
+
+topTweetWords: 					numEvents = _@totalNumEvents@_: 										tweets top(TOP_PCT, pct, "[a-zA-Z0-9-_']{3,}(?=[^a-zA-Z0-9-_']+|$)"),
+totalNumEvents:					numEvents = _@totalNumEvents@_:											_@totalNumEvents@_,
+pctTweetsWithWatchWords:		numEvents = _@totalNumEvents@_ & numTweetsWithWatchWords > 0:			100 * (numTweetsWithWatchWords / tweets count) + "%",
+pctTweetsWithoutWatchWords:		numEvents = _@totalNumEvents@_ & numTweetsWithWatchWords > 0:			100 * ((tweets count - numTweetsWithWatchWords) / tweets count) + "%",
+avgNumBusinessMentionsPerTweet:	numEvents = _@totalNumEvents@_ & numEligibleCustomerTweets > 0:			userMentions / numEligibleCustomerTweets;											

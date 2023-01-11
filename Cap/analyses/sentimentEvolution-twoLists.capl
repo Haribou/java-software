@@ -1,0 +1,119 @@
+# Sentiment evolution for tweets. We measure the average sentiment of all tweets per time window and track the averages over all time windows.
+
+settings:
+
+debug: 					false,
+recording: 				false;
+
+constants:
+
+MIN_TWEET_LENGTH:		25,
+
+POS_WORDS: 				set("happy", "love", "luv", "thank", "wow", "good", "nice", "awesome", "cool", "friendly", "best", "appreciate", "wonderful", "great", "grateful", "perfect"),
+NEG_WORDS: 				set("delayed", "lost", "cancel", "rude", "awful", "terrible", "wrong", "vaccin", "vax", "covid", "ridiculous", "hate", "suck", "wors", "missed", "joke", "shit", "crap", "piss", "bitch", "ass", "fuck", "trash", "idiot", "poor", "hell", "complain", "unacceptable", "wtf", "stupid", "excuse", "nobody", "respect", "problem", "racis", "disappoint", "mess", "refuse", "error", "unbelievable", "kick", "nasty", "frustrating", "lie"),
+
+PSYLING_URL:			"http://psyling.eastus2.azurecontainer.io:3004/sentiment",
+HTTP_HEADERS: 			map("token": "904144b818b21dac52384aaac96dc5317f58a489"),
+TIME_WINDOW_MS:			3600000,
+
+MAX_NUM_TIME_WINDOWS:	1000,
+SENTIMENT_HISTO_WIDTH:	0.025,
+VOLUME_HISTO_WIDTH:		5,
+
+OUTPUT_AT:				_@totalNumEvents@_;
+
+variables:
+
+httpParameters: 		map("lexicon": "afinn"),
+eligible:				false,
+hasExtendedText:		false,
+tweet:					"",
+totalTweetLength:		0,
+isPos:					false,
+isNeg:					false,
+numTweets:				0,
+numTweetsPos:			0,
+lengthsTweetsPos:		0,
+numTweetsNeg:			0,
+lengthsTweetsNeg:		0,
+firstTimestamp:			@["timestamp_ms"] stringToNumber,
+sentiment:				0,
+sentimentsTimeWindowPos:list,
+sentimentsTimeWindowNeg:list,
+sentimentAveragesPos:	list[MAX_NUM_TIME_WINDOWS],
+sentimentDevsPos:		list[MAX_NUM_TIME_WINDOWS],
+sentimentAveragesNeg:	list[MAX_NUM_TIME_WINDOWS],
+sentimentDevsNeg:		list[MAX_NUM_TIME_WINDOWS],
+numberTweetsPos:		list[MAX_NUM_TIME_WINDOWS],
+numberTweetsNeg:		list[MAX_NUM_TIME_WINDOWS],
+aggregatedSentimentPos:	0,
+aggregatedSentimentNeg:	0,
+sentimentAvg: 			0,
+histoMapPos:			map,
+histoMapNeg:			map,
+currentTimeWindow:		0,
+lastTimeWindow:			0,
+timeWindowRollover:		false;
+
+updateRules:
+
+eligible:: 																	!@["retweeted_status"] exists,
+hasExtendedText: 		eligible: 											@["extended_tweet"] exists,
+tweet: 					eligible & hasExtendedText: 						@["extended_tweet"]["full_text"],
+tweet: 					eligible & !hasExtendedText: 						@["text"],
+eligible:				eligible:											tweet count > MIN_TWEET_LENGTH,
+numTweets:				eligible:											numTweets + 1,
+totalTweetLength:		eligible:											totalTweetLength + tweet count,
+isPos:					eligible:											tweet containsSome?(POS_WORDS),
+isNeg:					eligible:											tweet containsSome?(NEG_WORDS),		
+numTweetsPos:			isPos:												numTweetsPos + 1,
+lengthsTweetsPos:		isPos:												lengthsTweetsPos + tweet count,
+numTweetsNeg:			isNeg:												numTweetsNeg + 1,
+lengthsTweetsNeg:		isNeg:												lengthsTweetsNeg + tweet count,
+: 						eligible:											httpParameters add("text": tweet),
+sentiment:				eligible: 											get(PSYLING_URL, httpParameters, HTTP_HEADERS)[0]["sentiment_score"],
+aggregatedSentimentPos:	isPos:												aggregatedSentimentPos + sentiment,
+aggregatedSentimentNeg:	isNeg:												aggregatedSentimentNeg + sentiment,
+:						isPos: 												sentimentsTimeWindowPos add(sentiment),
+:						isNeg: 												sentimentsTimeWindowNeg add(sentiment),
+currentTimeWindow:		eligible:											@["timestamp_ms"] numberToTimeWindow(firstTimestamp, TIME_WINDOW_MS),
+timeWindowRollover:		:													currentTimeWindow > lastTimeWindow,
+sentimentAvg:			timeWindowRollover:									sentimentsTimeWindowPos avg,
+:						timeWindowRollover:									histoMapPos add(currentTimeWindow numberToString: sentimentAvg),
+:						timeWindowRollover:									sentimentAveragesPos add(sentimentAvg),
+:						timeWindowRollover:									numberTweetsPos add(sentimentsTimeWindowPos count),
+:						timeWindowRollover:									sentimentDevsPos add(sentimentsTimeWindowPos stdDev),
+:						timeWindowRollover:									sentimentsTimeWindowPos removeAll,
+sentimentAvg:			timeWindowRollover:									sentimentsTimeWindowNeg avg,
+:						timeWindowRollover:									histoMapNeg add(currentTimeWindow numberToString: sentimentAvg),
+:						timeWindowRollover:									sentimentAveragesNeg add(sentimentAvg),
+:						timeWindowRollover:									numberTweetsNeg add(sentimentsTimeWindowNeg count),
+:						timeWindowRollover:									sentimentDevsNeg add(sentimentsTimeWindowNeg stdDev),
+:						timeWindowRollover:									sentimentsTimeWindowNeg removeAll,
+lastTimeWindow:			:													currentTimeWindow;
+
+outputRules:
+
+sentimentEvolutionPos:	numEvents = OUTPUT_AT:									sentimentAveragesPos,
+sentimentEvoDevsPos:	numEvents = OUTPUT_AT:									sentimentDevsPos,
+sentimentEvolutionNeg:	numEvents = OUTPUT_AT:									sentimentAveragesNeg,
+sentimentEvoDevsNeg:	numEvents = OUTPUT_AT:									sentimentDevsNeg,
+sentimentHistoPos:		numEvents = OUTPUT_AT:									histoMapPos histo(0, 1 // SENTIMENT_HISTO_WIDTH, SENTIMENT_HISTO_WIDTH),
+sentimentHistoNeg:		numEvents = OUTPUT_AT:									histoMapNeg histo(0, 1 // SENTIMENT_HISTO_WIDTH, SENTIMENT_HISTO_WIDTH),
+sentimentAveragePos:	numEvents = OUTPUT_AT & numTweetsPos > 0:				aggregatedSentimentPos / numTweetsPos,
+sentimentAverageNeg:	numEvents = OUTPUT_AT & numTweetsNeg > 0:				aggregatedSentimentNeg / numTweetsNeg,
+totalSentimentAverage:	numEvents = OUTPUT_AT & numTweetsPos + numTweetsNeg > 0:(aggregatedSentimentPos + aggregatedSentimentNeg) / (numTweetsPos + numTweetsNeg),
+totalNumberTweets:		numEvents = OUTPUT_AT:									numTweets,
+avgLengthTweets:		numEvents = OUTPUT_AT & numTweets > 0:					totalTweetLength / numTweets,
+avgLengthPosTweets:		numEvents = OUTPUT_AT & numTweetsPos > 0:				lengthsTweetsPos / numTweetsPos,
+avgLengthNegTweets:		numEvents = OUTPUT_AT & numTweetsNeg > 0:				lengthsTweetsNeg / numTweetsNeg,
+numberPosTweets:		numEvents = OUTPUT_AT:									numberTweetsPos,
+posTweetsFraction:		numEvents = OUTPUT_AT & numTweets > 0:					numberTweetsPos sum / numTweets,
+totalNumberPosTweets:	numEvents = OUTPUT_AT:									numberTweetsPos sum,
+numberNegTweets:		numEvents = OUTPUT_AT:									numberTweetsNeg,
+negTweetsFraction:		numEvents = OUTPUT_AT & numTweets > 0:					numberTweetsNeg sum / numTweets,
+totalNumberNegTweets:	numEvents = OUTPUT_AT:									numberTweetsNeg sum,
+tweetVolumesPos:		numEvents = OUTPUT_AT:									numberTweetsPos,
+tweetVolumesNeg:		numEvents = OUTPUT_AT:									numberTweetsNeg,
+tweetVolumesHistoPos:	numEvents = OUTPUT_AT:									numberTweetsPos histo(0, numberTweetsPos max // VOLUME_HISTO_WIDTH, VOLUME_HISTO_WIDTH),
+tweetVolumesHistoNeg:	numEvents = OUTPUT_AT:									numberTweetsNeg histo(0, numberTweetsNeg max // VOLUME_HISTO_WIDTH, VOLUME_HISTO_WIDTH);

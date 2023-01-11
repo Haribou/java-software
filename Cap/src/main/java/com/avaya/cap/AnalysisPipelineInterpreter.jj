@@ -1,0 +1,131 @@
+/**
+ *
+ * @author Reinhard Klemm, Avaya
+ *
+ */
+
+options
+{
+  	BUILD_PARSER = true;
+  	BUILD_TOKEN_MANAGER = true;
+  	CHOICE_AMBIGUITY_CHECK = 1;
+  	COMMON_TOKEN_ACTION = false;
+  	DEBUG_PARSER = false;
+  	DEBUG_TOKEN_MANAGER = false;
+  	ERROR_REPORTING = true;
+  	SANITY_CHECK = true;
+	STATIC = false;
+}
+
+PARSER_BEGIN(AnalysisPipelineInterpreter)
+
+package com.avaya.cap;
+
+import com.avaya.messaging.commons.io.StackTraceLogger;
+
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+import java.util.List;
+import java.util.ArrayList;
+
+public class AnalysisPipelineInterpreter
+{
+  	private static final Logger LOGGER = Logger.getLogger(AnalysisPipelineInterpreter.class);
+
+  	private static final boolean DEBUG = LOGGER.isTraceEnabled();
+  	
+  	private void printMessage(String message, Level logLevel)
+	{
+	  	LOGGER.log(logLevel, "Line " + token.beginLine + ", column " + token.beginColumn + ", token \"" + token.image + "\" (" + AnalysisPipelineInterpreterConstants.tokenImage[token.kind] + "): " + message);
+	}
+	
+	private AnalysisPipeline addAnalysisPipeline(List<AnalysisPipeline>analysisPipelines, Token entityIdToken, Token analysisIdToken)
+	{
+		final AnalysisPipeline analysisPipeline = new AnalysisPipeline();
+		
+	  	analysisPipelines.add(analysisPipeline);
+	  	analysisPipeline.addEntityId(entityIdToken);
+	  	analysisPipeline.addAnalysisId(analysisIdToken);
+
+		return analysisPipeline;
+	}
+  	
+	public List<AnalysisPipeline> getAnalysisPipelines()
+	{
+	  	if (DEBUG)
+			printMessage("Parsing analysis pipelines", Level.TRACE);
+
+		try
+		{
+			return parseAnalysisPipelines();
+		} catch (Exception e)
+		{
+		  	StackTraceLogger.log("Parsing of analysis pipeline failed", Level.ERROR, e, LOGGER);
+		  	printMessage("Parsing of analysis pipeline failed", Level.ERROR);
+		  	return null;
+		}
+	}
+}
+
+PARSER_END(AnalysisPipelineInterpreter)
+
+SKIP:
+{
+	"\r"
+	| "\n"
+	| "\t"
+	| "\f"
+	| " "
+	| < "#"(~["\n"])* >
+}
+
+TOKEN:
+{
+  	< IDENTIFIER: (["a"-"z","A"-"Z","0"-"9","_","-","+",".",":"])+ >
+ 	| < PIPELINE: ">" >
+	| < COMMA: "," >
+	| < SEMICOLON: ";" >
+}
+
+private List<AnalysisPipeline> parseAnalysisPipelines():
+{
+  	final List<AnalysisPipeline> analysisPipelines = new ArrayList<AnalysisPipeline>();
+
+  	AnalysisPipeline analysisPipeline;
+
+  	Token entityIdToken,
+  		  analysisIdToken;
+}
+{
+	entityIdToken = < IDENTIFIER > < COMMA > analysisIdToken = < IDENTIFIER >
+	{
+	  	analysisPipeline = addAnalysisPipeline(analysisPipelines, entityIdToken, analysisIdToken);
+	}
+	(
+	  	< PIPELINE > entityIdToken = < IDENTIFIER > < COMMA > analysisIdToken = < IDENTIFIER >
+	 	{
+	 	  	analysisPipeline.addEntityId(entityIdToken);
+	  		analysisPipeline.addAnalysisId(analysisIdToken);
+	 	}
+	)*
+	(	  	< SEMICOLON > entityIdToken = < IDENTIFIER > < COMMA > analysisIdToken = < IDENTIFIER >
+	  	{
+	  		analysisPipeline = addAnalysisPipeline(analysisPipelines, entityIdToken, analysisIdToken);  	
+	  	}
+	  	(
+	  	  	< PIPELINE > entityIdToken = < IDENTIFIER > < COMMA > analysisIdToken = < IDENTIFIER >
+	  	  	{
+	 	  		analysisPipeline.addEntityId(entityIdToken);
+	  			analysisPipeline.addAnalysisId(analysisIdToken);
+	 		}
+	  	)*
+	)*
+	{
+	  	return analysisPipelines;
+	}
+}
+
+TOKEN_MGR_DECLS:
+{
+  	private static final Logger LOGGER = Logger.getLogger(CaplInterpreter.class);
+}

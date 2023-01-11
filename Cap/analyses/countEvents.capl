@@ -1,0 +1,20 @@
+settings: 			
+
+debug:			true,
+recording:		false;
+
+constants:
+
+;
+
+variables:
+
+;
+
+updateRules:
+
+;
+
+outputRules:
+
+numberEvents:: numEvents;

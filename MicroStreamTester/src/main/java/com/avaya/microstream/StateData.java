@@ -8,13 +8,13 @@ import one.microstream.integrations.spring.boot.types.Storage;
 import one.microstream.storage.embedded.types.EmbeddedStorageManager;
 
 @Storage
-public class StateData
+class StateData
 {
 	private static final Logger LOG = Logger.getLogger(StateData.class);
 	
 	private final HashMap<String, String> stateDataField = new HashMap<>();
 	
-	public StateData()
+	StateData()
 	{
 		LOG.debug("Created StateData");
 	}

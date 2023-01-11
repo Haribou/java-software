@@ -1,0 +1,83 @@
+settings:
+
+debug: false,
+recording: false,
+expires: 14 * 24 * 60;
+
+constants:
+
+OUTPUT_EVERY: 10,
+OUTPUT_WEBHOOK_URL: "https://webhook.site/e55bb124-ab82-4c2e-90bd-b63028742386",
+HISTO_NUM_BUCKETS: 1000,
+HISTO_BUCKET_WIDTH: 5;
+
+variables:
+
+statusProcessingTimes: list[],
+registerProcessingTimes: list[],
+deregisterProcessingTimes: list[],
+notifyOneProcessingTimes: list[],
+notifyMultipleProcessingTimes: list[],
+allProcessingTimes: list[],
+postPayload: map[]("analysis": "processingTimesAnalysis", "agentId": @["agentId"], "originator": @["eventId"]);
+
+updateRules:
+
+@["metaEvent"] = "status":
+	:
+		statusProcessingTimes add(@["processingTime"]),
+
+@["metaEvent"] = "register":
+	:
+		registerProcessingTimes add(@["processingTime"]),
+
+@["metaEvent"] = "deregister":
+	:
+		deregisterProcessingTimes add(@["processingTime"]),
+
+@["metaEvent"] = "notifyOne":
+	:
+		notifyOneProcessingTimes add(@["processingTime"]),
+
+@["metaEvent"] = "notifyMultiple":
+	:
+		notifyMultipleProcessingTimes add(@["processingTime"]),
+
+:
+	:
+		allProcessingTimes add(@["processingTime"]),
+
+numEvents % OUTPUT_EVERY = 0:
+	:
+		postPayload add("numberRequests": numEvents,
+						"avgProcessingTimeAll": allProcessingTimes avg,
+						"maxProcessingTimeAll": allProcessingTimes max,
+						"minProcessingTimeAll": allProcessingTimes min,
+						"stdDevProcessingTimeAll": allProcessingTimes stdDev,
+						"avgProcessingTimeStatus": statusProcessingTimes avg,
+						"maxProcessingTimeStatus": statusProcessingTimes max,
+						"minProcessingTimeStatus": statusProcessingTimes min,
+						"stdDevProcessingTimeStatus": statusProcessingTimes stdDev,
+						"avgProcessingTimeRegister": registerProcessingTimes avg,
+						"maxProcessingTimeRegister": registerProcessingTimes max,
+						"minProcessingTimeRegister": registerProcessingTimes min,
+						"stdDevProcessingTimeRegister": registerProcessingTimes stdDev,
+						"avgProcessingTimeDeregister": deregisterProcessingTimes avg,
+						"maxProcessingTimeDeregister": deregisterProcessingTimes max,
+						"minProcessingTimeDeregister": deregisterProcessingTimes min,
+						"stdDevProcessingTimeDeregister": deregisterProcessingTimes stdDev,
+						"avgProcessingTimeNotifyOne": notifyOneProcessingTimes avg,
+						"maxProcessingTimeNotifyOne": notifyOneProcessingTimes max,
+						"minProcessingTimeNotifyOne": notifyOneProcessingTimes min,
+						"stdDevProcessingTimeNotifyOne": notifyOneProcessingTimes stdDev,
+						"avgProcessingTimeNotifyMultiple": notifyMultipleProcessingTimes avg,
+						"maxProcessingTimeNotifyMultiple": notifyMultipleProcessingTimes max,
+						"minProcessingTimeNotifyMultiple": notifyMultipleProcessingTimes min,
+						"stdDevProcessingTimeNotifyMultiple": notifyMultipleProcessingTimes stdDev,
+						"histoGramAllProcessingTimes": allProcessingTimes histo(0, HISTO_NUM_BUCKETS, HISTO_BUCKET_WIDTH)) \
+	:
+		post(OUTPUT_WEBHOOK_URL, "", postPayload);
+
+outputRules:
+
+;

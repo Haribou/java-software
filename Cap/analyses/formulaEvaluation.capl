@@ -1,0 +1,17 @@
+# Formula evaluator using JSON input.
+
+constants:
+
+;
+
+variables:
+
+;
+
+updateRules:
+
+;
+
+outputRules:
+
+outputValue:: ;

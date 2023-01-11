@@ -1,0 +1,62 @@
+authentication:
+  clientId: capClient
+  password: cap*Cr0119
+    
+logging:
+  level.org.springframework: TRACE
+  level.one.microstream: DEBUG
+  file:
+    path: logs
+    
+management:
+  endpoint:
+    shutdown:
+      enabled: true
+    health:
+      enabled: true
+  endpoints:
+    enabled-by-default: false
+    web:
+      base-path: /manage
+      exposure:
+        include: shutdown, health
+  server:
+    port: 5049
+    ssl:
+       enabled: false
+    address: 127.0.0.1
+
+server:
+  port: 7778
+  ssl:
+    enabled: true
+    key-alias: "*.av-messagingautomation.com"
+    key-store: classpath:file:security/www_slateai_com.jks
+    key-store-password: Junbald-8
+    key-password: Junbald-8
+    key-store-type: PKCS12
+
+serverName: cap.av-messagingautomation.com
+
+consoleOutput: false
+
+analysisDirectory: ./analyses
+
+eventFileDirectory: ./eventData
+
+stateDataDirectory: ./stateData
+
+spring:
+   jackson:
+      serialization:
+         indent_output: true
+
+# trustStorePathAndName: security/www_slateai_com
+# trustStorePassword: Junbald-8
+
+one.microstream:
+   storage-directory: ./stateData
+   backup-directory: ./stateDataBackup
+   channel-count: 4
+   housekeeping-interval: 300000 # 5 minutes
+   entity-cache-timeout: 31536000000 # 365 days
