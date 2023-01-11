@@ -14,7 +14,10 @@ class AnalysisState
 	
 	private long lastAnalysisStateChangeField = System.currentTimeMillis();
 	
-	private boolean isNewState = true; 
+	private boolean isNewState = true;
+	
+	AnalysisState()
+	{}
 	
 	AnalysisState(Mutability mutability)
 	{

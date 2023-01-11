@@ -1,0 +1,10 @@
+INFO  2023-01-11 17:43:50.507 GMT-0500 [main] CapApiServer - Initialized embedded storage manager
+INFO  2023-01-11 17:43:51.394 GMT-0500 [main] CapApiServer - Discovered property name "consoleOutput", value is "false", default value is "true"
+INFO  2023-01-11 17:43:51.394 GMT-0500 [main] CapApiServer - Discovered property name "analysisDirectory", value is "./analyses", default value is "./analyses"
+INFO  2023-01-11 17:43:51.394 GMT-0500 [main] CapApiServer - Discovered property name "stateDataDirectory", value is "./stateData", default value is "./stateData"
+INFO  2023-01-11 17:43:51.394 GMT-0500 [main] CapApiServer - Discovered property name "eventFileDirectory", value is "./eventData", default value is "./eventData"
+INFO  2023-01-11 17:43:51.394 GMT-0500 [main] CapApiServer - Discovered property name "eventBufferLength", value is "1000", default value is "100"
+INFO  2023-01-11 17:43:51.394 GMT-0500 [main] CapApiServer - Discovered property name "deleteEventFilesAfterDays", value is "180", default value is "90"
+INFO  2023-01-11 17:43:51.394 GMT-0500 [main] CapApiServer - Discovered property name "prettyPrintLoggedJsonEvents", value is "false", default value is "false"
+INFO  2023-01-11 17:43:51.425 GMT-0500 [main] CapApiServer - CAP REST API server started successfully
+INFO  2023-01-11 17:43:51.425 GMT-0500 [Thread-1] CapApiServer - Starting state files purger thread for directory "./stateData\"...

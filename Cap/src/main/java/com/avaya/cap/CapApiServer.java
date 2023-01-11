@@ -718,7 +718,11 @@ public class CapApiServer implements CommandLineRunner
 			ENTITIES_SEMAPHORES.notifyAll();
 		}
 		
-		storageManagerField.shutdown();
+		try
+		{
+			storageManagerField.shutdown();
+		} catch (Exception e)
+		{}
 		
 		if (consoleOutput)
 			ConsoleOutputter.print(true, "Shutting down");

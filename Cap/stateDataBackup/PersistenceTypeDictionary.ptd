@@ -448,3 +448,7 @@
 0000000000001000064 java.util.Collections$EmptyList{}
 0000000000001000065 java.util.Collections$EmptySet{}
 0000000000001000066 java.util.Collections$EmptyMap{}
+0000000000001000067 com.avaya.cap.AllAnalysesStates{
+	java.util.HashMap com.avaya.cap.AllAnalysesStates#allAnalysisConstantsStates,
+	java.util.HashMap com.avaya.cap.AllAnalysesStates#allAnalysisVariablesStates,
+}
