@@ -24,11 +24,6 @@
             <artifactId>commonsX</artifactId>
             <version>7.2.0.0-SNAPSHOT</version>
         </dependency>
-        <dependency>
-            <groupId>com.avaya.slate</groupId>
-            <artifactId>gatewayCommonsX</artifactId>
-            <version>7.2.0.0-SNAPSHOT</version>
-        </dependency>
 		<dependency>
 			<groupId>javax.annotation</groupId>
 			<artifactId>javax.annotation-api</artifactId>

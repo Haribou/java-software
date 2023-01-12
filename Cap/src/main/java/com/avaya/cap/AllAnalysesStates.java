@@ -14,7 +14,7 @@ import one.microstream.integrations.spring.boot.types.Storage;
 import one.microstream.storage.embedded.types.EmbeddedStorageManager;
 
 @Storage
-class AllAnalysesStates
+public class AllAnalysesStates
 {
 	@Autowired
 	private transient EmbeddedStorageManager storageManagerField;
@@ -27,6 +27,8 @@ class AllAnalysesStates
 	{
 		AnalysisState[] analysisStates = new AnalysisState[2];
 		
+		HashMap<String, AnalysisState> existingVariablesStates;
+		
 		analysisStates[0] = allAnalysisConstantsStates.get(analysisId);
 		
 		if (analysisStates[0] == null)
@@ -37,27 +39,35 @@ class AllAnalysesStates
 		else if (lastAnalysisChange > analysisStates[0].getLastAnalysisChange())
 		{
 			analysisStates[0].reinitialize(Mutability.CONSTANT);
-			if (allAnalysisVariablesStates.containsKey(analysisId))
-				if (allAnalysisVariablesStates.get(analysisId).containsKey(entityId))
-				{
-					analysisStates[1] = allAnalysisVariablesStates.get(analysisId).get(entityId);
-					analysisStates[1].reinitialize(Mutability.VARIABLE);
-				}
-				else analysisStates[1] = new AnalysisState(Mutability.VARIABLE);
+			existingVariablesStates = allAnalysisVariablesStates.get(analysisId);
+			if (existingVariablesStates == null)
+				analysisStates[1] = new AnalysisState(Mutability.VARIABLE);
+			else if (existingVariablesStates.containsKey(entityId))
+			{
+				analysisStates[1] = existingVariablesStates.get(entityId);
+				analysisStates[1].reinitialize(Mutability.VARIABLE);
+			}
 			else analysisStates[1] = new AnalysisState(Mutability.VARIABLE);
 		}
-		else if (allAnalysisVariablesStates.containsKey(analysisId))
-			if (allAnalysisVariablesStates.get(analysisId).containsKey(entityId))
-				analysisStates[1] = allAnalysisVariablesStates.get(analysisId).get(entityId);
+		else
+		{
+			existingVariablesStates = allAnalysisVariablesStates.get(analysisId); 
+			if (existingVariablesStates == null)
+				analysisStates[1] = new AnalysisState(Mutability.VARIABLE);
+			else if (existingVariablesStates.containsKey(entityId))
+			{
+				analysisStates[1] = existingVariablesStates.get(entityId);
+				analysisStates[1].getAnalysisState().put("*numberEvents*", new CaplValue(analysisStates[1].getAnalysisState().get("*numberEvents*").getNumberValue() + 1l));
+			}
 			else analysisStates[1] = new AnalysisState(Mutability.VARIABLE);
-		else analysisStates[1] = new AnalysisState(Mutability.VARIABLE);
+		}
 		
 		return analysisStates;
 	}
 
 	void saveAnalysisState(String analysisId, String entityId, AnalysisState analysisConstantsState, AnalysisState analysisVariablesState)
 	{
-		HashMap<String, AnalysisState> entityVariablesState;
+		HashMap<String, AnalysisState> existingVariablesStates;
 		
 		if (analysisConstantsState.getIsNewState())
 		{
@@ -70,20 +80,31 @@ class AllAnalysesStates
 		if (analysisVariablesState.getIsNewState())
 		{
 			analysisVariablesState.markAsExistingState();
-			if (allAnalysisVariablesStates.containsKey(analysisId))
+			existingVariablesStates = allAnalysisVariablesStates.get(analysisId);
+			if (existingVariablesStates == null)
 			{
-				allAnalysisVariablesStates.get(analysisId).put(entityId, analysisVariablesState);
-				storageManagerField.store(allAnalysisVariablesStates.get(analysisId));
+				existingVariablesStates = new HashMap<>();
+				allAnalysisVariablesStates.put(analysisId, existingVariablesStates);
+				existingVariablesStates.put(entityId, analysisVariablesState);
+				storageManagerField.store(allAnalysisVariablesStates);
 			}
 			else
 			{
-				entityVariablesState = new HashMap<>();
-				allAnalysisVariablesStates.put(analysisId, entityVariablesState);
-				entityVariablesState.put(entityId, analysisVariablesState);
-				storageManagerField.store(allAnalysisVariablesStates);
+				existingVariablesStates.put(entityId, analysisVariablesState);
+				storageManagerField.store(existingVariablesStates);
 			}
 		}
 		else storageManagerField.store(analysisVariablesState);
+	}
+	
+	HashMap<String, AnalysisState> getAllAnalysisConstantsStates()
+	{
+		return allAnalysisConstantsStates;
+	}
+	
+	HashMap<String, HashMap<String, AnalysisState>> getAllAnalysisVariablesStates()
+	{
+		return getAllAnalysisVariablesStates();
 	}
 }
 	

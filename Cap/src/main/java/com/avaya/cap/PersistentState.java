@@ -20,6 +20,7 @@ import java.util.Set;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
+import com.avaya.cap.collections.CaplCollection;
 import com.avaya.messaging.commons.io.FileUtilities;
 import com.avaya.messaging.commons.io.StackTraceLogger;
 import com.fasterxml.jackson.databind.JsonNode;

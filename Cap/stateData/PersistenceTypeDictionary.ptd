@@ -493,3 +493,9 @@
 0000000000001000075 java.util.Collections$SetFromMap{
 	java.util.Map java.util.Collections$SetFromMap#m,
 }
+0000000000001000076 com.avaya.cap.collections.CaplHashMap{
+	int     java.util.HashMap                    #threshold            ,
+	float   java.util.HashMap                    #loadFactor           ,
+	boolean java.util.LinkedHashMap              #accessOrder          ,
+	int     com.avaya.cap.collections.CaplHashMap#combinedCapacityField,
+}

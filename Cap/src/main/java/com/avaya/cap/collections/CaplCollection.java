@@ -4,67 +4,62 @@
  *
  */
 
-package com.avaya.cap;
+package com.avaya.cap.collections;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
-class CaplCollection
+import com.avaya.cap.CaplValue;
+
+public class CaplCollection
 {
 	private CaplCollection()
 	{
 		// Don't instantiate this class - all methods are static.
 	}
 	
-	static CaplValue getSet()
+	public static CaplValue getSet()
 	{
 		return new CaplValue(new HashSet<CaplValue>(), Integer.MAX_VALUE);
 	}
 	
-	static CaplValue getSet(int capacity)
+	public static CaplValue getSet(int capacity)
 	{
+		final Map<CaplValue, Boolean> setMap;
+		
 		if (capacity == Integer.MAX_VALUE)
 			return getSet();
 		
-		final Map<CaplValue, Boolean> setMap = new LinkedHashMap<CaplValue, Boolean>()
-		{
-		  	@Override
-		  	protected boolean removeEldestEntry(Entry<CaplValue, Boolean> eldest)
-		  	{
-		  	  	return size() > capacity;
-		  	}
-		};
+		setMap = new CaplHashMap<CaplValue, Boolean>(capacity);
 		
 		return new CaplValue(Collections.newSetFromMap(setMap), capacity);
 	}
 	
-	static CaplValue getSet(CaplValue capacity)
+	public static CaplValue getSet(CaplValue capacity)
 	{
 		return getSet((int) capacity.getNumberValue());
 	}
 	
-	static CaplValue getSet(long now, long timeWindowLength)
+	public static CaplValue getSet(long now, long timeWindowLength)
 	{
 		return new CaplValue(new HashSet<CaplValue>(), now, timeWindowLength);
 	}
 	
-	static CaplValue getSet(CaplValue now, CaplValue timeWindowLength)
+	public static CaplValue getSet(CaplValue now, CaplValue timeWindowLength)
 	{
 		return getSet((long) now.getNumberValue(), (long) timeWindowLength.getNumberValue());
 	}
 	
-	static CaplValue getCombinedSet(CaplValue set1, CaplValue set2)
+	public static CaplValue getCombinedSet(CaplValue set1, CaplValue set2)
 	{
-		Set<CaplValue> resultSet;
+		final Set<CaplValue> resultSet;
 		
-		Map<CaplValue, Boolean> setMap;
+		final CaplHashMap<CaplValue, Boolean> setMap;
 		
 		int combinedCapacity;
 		
@@ -97,14 +92,7 @@ class CaplCollection
    	  		combinedCapacity = Integer.MAX_VALUE;
    	  	}
 		
-		setMap = new LinkedHashMap<CaplValue, Boolean>()
-		{
-		  	@Override
-		  	protected boolean removeEldestEntry(Entry<CaplValue, Boolean> eldest)
-		  	{
-		  	  	return size() > set1.getCapacity() + set2.getCapacity();
-		  	}
-		};
+		setMap = new CaplHashMap<CaplValue, Boolean>(combinedCapacity);
 		
 		resultSet = Collections.newSetFromMap(setMap);
 		resultSet.addAll(set1.getSetValue());
@@ -113,11 +101,11 @@ class CaplCollection
 		return new CaplValue(resultSet, combinedCapacity);
 	}
 	
-	static CaplValue getDifferenceSet(CaplValue set1, CaplValue set2, boolean intersect)
+	public static CaplValue getDifferenceSet(CaplValue set1, CaplValue set2, boolean intersect)
 	{
-		Set<CaplValue> resultSet;
+		final Set<CaplValue> resultSet;
 		
-		Map<CaplValue, Boolean> setMap;
+		final CaplHashMap<CaplValue, Boolean> setMap;
 		
 		if (set1.getTimeWindowStart() != set2.getTimeWindowStart() || set1.getTimeWindowLength() != set2.getTimeWindowLength())
 			return null;
@@ -143,14 +131,7 @@ class CaplCollection
    	  		return new CaplValue(resultSet, Integer.MAX_VALUE);
 		}
 		
-		setMap = new LinkedHashMap<CaplValue, Boolean>()
-		{
-		  	@Override
-		  	protected boolean removeEldestEntry(Entry<CaplValue, Boolean> eldest)
-		  	{
-		  	  	return size() > set1.getCapacity();
-		  	}
-		};
+		setMap = new CaplHashMap<CaplValue, Boolean>(set1.getCapacity());
 		
 		resultSet = Collections.newSetFromMap(setMap);
 		resultSet.addAll(set1.getSetValue());
@@ -161,48 +142,39 @@ class CaplCollection
 		return new CaplValue(resultSet, set1.getCapacity());
 	}
 	
-	static CaplValue getMap()
+	public static CaplValue getMap()
 	{
 		return new CaplValue(new HashMap<String, CaplValue>(), Integer.MAX_VALUE);
 	}
 	
-	static CaplValue getMap(int capacity)
+	public static CaplValue getMap(int capacity)
 	{
 		if (capacity == Integer.MAX_VALUE)
 			return getMap();
 
-		return new CaplValue(new LinkedHashMap<String, CaplValue>()
-		{
-		  	@Override
-		  	protected boolean removeEldestEntry(Entry<String, CaplValue> eldest)
-		  	{
-		  	  	return size() > capacity;
-		  	}
-		}, capacity);
+		return new CaplValue(new CaplHashMap<String, CaplValue>(capacity), capacity);
 	}
 	
-	static CaplValue getMap(CaplValue capacity)
+	public static CaplValue getMap(CaplValue capacity)
 	{
 		return getMap((int) capacity.getNumberValue());
 	}
 	
-	static CaplValue getMap(long now, long timeWindowLength)
+	public static CaplValue getMap(long now, long timeWindowLength)
 	{
 		return new CaplValue(new HashMap<String, CaplValue>(), now, timeWindowLength);
 	}
 	
-	static CaplValue getMap(CaplValue now, CaplValue timeWindowLength)
+	public static CaplValue getMap(CaplValue now, CaplValue timeWindowLength)
 	{
 		return getMap((long) now.getNumberValue(), (long) timeWindowLength.getNumberValue());
 	}
 	
-	static CaplValue getCombinedMap(CaplValue map1, CaplValue map2)
+	public static CaplValue getCombinedMap(CaplValue map1, CaplValue map2)
 	{
-		Map<String, CaplValue> resultMap;
+		final Map<String, CaplValue> resultMap;
 		
-		int capacity;
-		
-		final int combinedCapacity;
+		int combinedCapacity;
 		
 		if (map1.getTimeWindowStart() != map2.getTimeWindowStart() || map1.getTimeWindowLength() != map2.getTimeWindowLength())
 			return null;
@@ -226,22 +198,14 @@ class CaplCollection
 		
 		try
    	  	{
-			capacity = map1.getCapacity() + map2.getCapacity();
+			combinedCapacity = map1.getCapacity() + map2.getCapacity();
    	  	} catch (Exception e)
    	  	{
    	  		// Number overflow exception.
-   	  		capacity = Integer.MAX_VALUE;
+   	  		combinedCapacity = Integer.MAX_VALUE;
    	  	}
-		combinedCapacity = capacity;
 		
-		resultMap = new LinkedHashMap<String, CaplValue>()
-		{
-		  	@Override
-		  	protected boolean removeEldestEntry(Entry<String, CaplValue> eldest)
-		  	{
-		  	  	return size() > combinedCapacity;
-		  	}
-		};
+		resultMap = new CaplHashMap<String, CaplValue>(combinedCapacity);
 		
 		resultMap.putAll(map1.getMapValue());
 		resultMap.putAll(map2.getMapValue());
@@ -249,12 +213,12 @@ class CaplCollection
 		return new CaplValue(resultMap, combinedCapacity);
 	}
 	
-	static CaplValue getList()
+	public static CaplValue getList()
 	{
 		return new CaplValue(new ArrayList<CaplValue>(), Integer.MAX_VALUE);
 	}
 	
-	static CaplValue getList(int capacity)
+	public static CaplValue getList(int capacity)
 	{
 		if (capacity == Integer.MAX_VALUE)
 			return getList();
@@ -262,7 +226,7 @@ class CaplCollection
 		return new CaplValue(new ArrayList<CaplValue>(), capacity);
 	}
 	
-	static CaplValue getList(CaplValue capacity)
+	public static CaplValue getList(CaplValue capacity)
 	{
 		if (capacity.getNumberValue() == Integer.MAX_VALUE)
 			return getList();
@@ -270,17 +234,17 @@ class CaplCollection
 		return getList((int) capacity.getNumberValue());
 	}
 	
-	static CaplValue getList(long now, long timeWindowLength)
+	public static CaplValue getList(long now, long timeWindowLength)
 	{
 		return new CaplValue(new ArrayList<CaplValue>(), now, timeWindowLength);
 	}
 	
-	static CaplValue getList(CaplValue now, CaplValue timeWindowLength)
+	public static CaplValue getList(CaplValue now, CaplValue timeWindowLength)
 	{
 		return getList((long) now.getNumberValue(), (long) timeWindowLength.getNumberValue());
 	}
 	
-	static CaplValue getCombinedList(CaplValue list1, CaplValue list2)
+	public static CaplValue getCombinedList(CaplValue list1, CaplValue list2)
 	{
 		List<CaplValue> resultList;
 		
@@ -304,7 +268,7 @@ class CaplCollection
    	  	}
 	}
 	
-	static CaplValue getDifferenceList(CaplValue list1, CaplValue list2, boolean intersect)
+	public static CaplValue getDifferenceList(CaplValue list1, CaplValue list2, boolean intersect)
 	{
 		List<CaplValue> resultList;
 		

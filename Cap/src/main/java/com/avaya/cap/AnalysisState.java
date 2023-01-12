@@ -8,26 +8,31 @@ package com.avaya.cap;
 
 import java.util.HashMap;
 
-class AnalysisState
+public class AnalysisState
 {
 	private final HashMap<String, CaplValue> analysisStateField = new HashMap<>();
 	
-	private long lastAnalysisStateChangeField = System.currentTimeMillis();
+	private long lastAnalysisStateChangeField;
 	
 	private boolean isNewState = true;
 	
-	AnalysisState()
+	public AnalysisState()
 	{}
 	
 	AnalysisState(Mutability mutability)
 	{
-		reinitialize(mutability);
+		lastAnalysisStateChangeField = System.currentTimeMillis();
+		if (mutability == Mutability.VARIABLE)
+		{
+			analysisStateField.put("*numberEvents*", new CaplValue(1d));
+			analysisStateField.put("*now*", new CaplValue(lastAnalysisStateChangeField));
+		}
 	}
 	
 	void reinitialize(Mutability mutability)
 	{
-		lastAnalysisStateChangeField = System.currentTimeMillis();
 		analysisStateField.clear();
+		lastAnalysisStateChangeField = System.currentTimeMillis();
 		if (mutability == Mutability.VARIABLE)
 		{
 			analysisStateField.put("*numberEvents*", new CaplValue(1d));

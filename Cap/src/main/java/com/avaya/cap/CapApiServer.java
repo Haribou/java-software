@@ -60,7 +60,7 @@ public class CapApiServer implements CommandLineRunner
 
 	private final static MultiLogger MULTI_LOGGER = new MultiLogger(LOG, SECURITY_LOG);
 	
-	private final static Map<String, Object> ENTITIES_SEMAPHORES = new HashMap<>();
+	private static Map<String, Object> entitiesSemaphores = null;
 	
 	private static AllAnalysesStates allAnalysesStateDataField;
 	
@@ -111,7 +111,7 @@ public class CapApiServer implements CommandLineRunner
 	@Value("${stateDataPurgeIntervalMins:720}")
 	private int stateDataPurgeIntervalMinutes;
 	
-	@Value("${one.microstream.on:true}")
+	@Value("${one.microstream.use:true}")
 	private boolean useMicroStream;
 	
 	private String cachedAnalysisId,
@@ -151,6 +151,17 @@ public class CapApiServer implements CommandLineRunner
 	
 	private class StatePurger extends Thread
 	{
+		private class Purger implements Runnable
+		{
+
+			@Override
+			public void run()
+			{
+				// TODO Auto-generated method stub
+				
+			}
+		}
+		
 		@Override
 		public void run()
 		{
@@ -176,14 +187,22 @@ public class CapApiServer implements CommandLineRunner
 			
 			boolean hasEntityStateFiles;
 			
+			Purger purger = null;
+			
 			LOG.info("Starting state files purger thread for directory \"" + stateDataDirectory + "\"...");
 			
 			while (true)
-				try
+				if (useMicroStream)
 				{
-					synchronized(ENTITIES_SEMAPHORES)
+					if (purger == null)
+						purger = new Purger();
+					XThreads.executeSynchronized(purger);
+				}
+				else try
+				{
+					synchronized(entitiesSemaphores)
 					{
-						ENTITIES_SEMAPHORES.wait(sleepTime);
+						entitiesSemaphores.wait(sleepTime);
 						if (terminated)
 						{
 							LOG.info("Shutting down state files purger thread");
@@ -332,145 +351,157 @@ public class CapApiServer implements CommandLineRunner
 		return null;
 	}
 	
-	private ObjectNode executeCapAnalysis(String entityId, String analysisId, JsonNode event, String variableSubstitutions, boolean useCachedAnalysisState, boolean resetState) 
+	private ObjectNode runCaplAnalysis(String entityId, String analysisId, JsonNode event, String variableSubstitutions, boolean useCachedAnalysisState, boolean resetState)
 	{
 		String capAnalysisPathAndFileName,
 			   capAnalysis;
+		
+		File capAnalysisFile;
 		
 		StringReader capAnalysisReader;
 		
 		CaplInterpreter caplInterpreter;
 		
-    	Object synchronizerForEntity;
-    	
-    	ObjectNode analysisResults;
-    	
-    	PersistentState persistentState = null;
-    	
-    	AnalysisState[] analysisStateData;
-    	
-    	CaplValue numberEvents;
-    	
-    	List<Map<String, CaplValue>> retrievedState = null;
-    	
-		synchronized (ENTITIES_SEMAPHORES)
+		ObjectNode analysisResults;
+		
+		PersistentState persistentState = null;
+		
+		AnalysisState[] analysisStateData = null;
+		
+		CaplValue numberEvents;
+		
+		List<Map<String, CaplValue>> retrievedState = null;
+	
+		if (resetState)
+		{
+			cachedEntityId = null;
+			cachedAnalysisId = null;
+			cachedCapAnalysis = null;
+			cachedAnalysisPathAndFileName = null;
+			cachedState = null;
+			
+			if (LOG.isTraceEnabled())
+				LOG.trace("Resetting cached and persistent state");
+		}
+		
+		if (useCachedAnalysisState && cachedEntityId != null && cachedAnalysisId != null && cachedCapAnalysis != null && cachedState != null)
+			if (cachedEntityId.equals(entityId) && cachedAnalysisId.equals(analysisId))
+			{
+				capAnalysis = cachedCapAnalysis;
+				retrievedState = cachedState;
+				numberEvents = retrievedState.get(1).get("*numberEvents*");
+				if (numberEvents == null)
+					return JsonManager.generateResponseObject("The cached analysis state does not contain the required *numberEvents* CAPL value");
+				retrievedState.get(1).put("*numberEvents*", new CaplValue(numberEvents.getNumberValue() + 1d));
+				capAnalysisPathAndFileName = cachedAnalysisPathAndFileName;
+				
+				if (LOG.isTraceEnabled())
+					LOG.trace("Using cached analysis state");
+			}
+			else return JsonManager.generateResponseObject("The cached analysis was generated for a different entity / analysis ID combination and is thus invalid: " +
+													  	   "cached entity ID = \"" + cachedEntityId + "\", new entity ID = \"" + entityId + "\", " +
+													  	   "cached analysis ID = \"" + cachedAnalysisId + "\", new analysis ID = \"" + analysisId + "\"");
+		else
+		{
+    		if (isEmpty(analysisId))
+	    	{
+	    		LOG.error("The \"analysisId\" must not be empty");
+	    		return JsonManager.generateResponseObject("The analysisId must not be empty");
+	    	}
+	    	capAnalysisPathAndFileName = analysisDirectory + analysisId + ".capl";
+	    	
+	    	capAnalysisFile = new File(capAnalysisPathAndFileName);
+			if (!capAnalysisFile.exists())
+	    	{
+	    		LOG.error("\"" + capAnalysisPathAndFileName + "\" does not match any CAP analysis in directory \"" + analysisDirectory + "\"");
+	    		return JsonManager.generateResponseObject("The \"analysisId\" (\"" + analysisId + "\") is invalid");
+	    	}
+	    	capAnalysis = FileUtilities.getFileContent(capAnalysisPathAndFileName);
+	    	if (isEmpty(capAnalysis))
+	    	{
+	    		LOG.error("Specified CAP analysis script \"" + capAnalysisPathAndFileName + "\" is empty");
+	    		return JsonManager.generateResponseObject("The CAP analysis with \"analysisId\" \"" + analysisId + "\" is invalid");
+	    	}
+	    	capAnalysis = instantiateAnalysis(capAnalysis, variableSubstitutions);
+	    	if (capAnalysis == null)
+				return JsonManager.generateResponseObject("Unable to instantiate the CAP analysis with the given \"variableSubstitutions\" parameters");
+	    	
+	    	if (LOG.isTraceEnabled())
+	    		LOG.trace("Retrieving state for CAP analysis \"" + capAnalysisPathAndFileName + "\" for entity \"" + entityId + "\"");
+	    	
+	    	if (useMicroStream)
+	    		analysisStateData = allAnalysesStateDataField.makeAnalysisState(analysisId, entityId, capAnalysisFile.lastModified());
+	    	else
+	    	{
+	    		persistentState = new PersistentState(stateDataDirectory);
+		    	retrievedState = persistentState.retrieveState(capAnalysisPathAndFileName, analysisId, entityId, resetState);
+	    		if (retrievedState == null)
+	    			return JsonManager.generateResponseObject("Unable to read stored entity state of CAP analysis with \"analysisId\" \"" + analysisId + "\" for entity \"" + entityId + "\"");
+	    	}
+		}
+		
+		if (LOG.isTraceEnabled())
+    		LOG.trace("Parsing and interpreting CAP analysis \"" + capAnalysisPathAndFileName + "\" for entity \"" + entityId + "\"");
+    	try
     	{
-    		synchronizerForEntity = ENTITIES_SEMAPHORES.get(entityId);
+    		capAnalysisReader = new StringReader(capAnalysis);
+    	} catch (Exception e)
+    	{
+    	  	StackTraceLogger.log("Unable to process specified CAP analysis", Level.ERROR, e, LOG);
+    	  	return JsonManager.generateResponseObject("Unable to read the CAP analysis with \"analysisId\" \"" + analysisId + "\"");
+    	}
+    	
+    	caplInterpreter = new CaplInterpreter(capAnalysisReader);
+    	
+    	if (useMicroStream)
+    	{
+    		analysisResults = caplInterpreter.analyzeEvent(analysisId, analysisStateData[0].getAnalysisState(), analysisStateData[1].getAnalysisState(), event);
+    		allAnalysesStateDataField.saveAnalysisState(analysisId, entityId, analysisStateData[0], analysisStateData[1]);
+    	}
+    	else analysisResults = caplInterpreter.analyzeEvent(analysisId, retrievedState.get(0), retrievedState.get(1), event);
+		if (!analysisResults.get("success").asBoolean())
+			return JsonManager.generateResponseObject("Evaluation of CAP analysis with \"analysisId\" \"" + analysisId + "\" for entity \"" + entityId + "\" failed");
+		
+		if (!useMicroStream)
+		{
+			if (useCachedAnalysisState)
+			{
+				cachedEntityId = entityId;
+				cachedAnalysisId = analysisId;
+				cachedCapAnalysis = capAnalysis;
+				cachedAnalysisPathAndFileName = capAnalysisPathAndFileName;
+				cachedState = retrievedState;
+			}
+			else if (!persistentState.saveState(analysisId, entityId, analysisResults))
+				return JsonManager.generateResponseObject("Unable to save state of CAP analysis with \"analysisId\" \"" + analysisId + "\" for entity \"" + entityId + "\"");
+		}
+			
+		analysisResults.remove("analysisState");
+		analysisResults.remove("entityState");
+		
+		return analysisResults;
+	}
+	
+	private ObjectNode executeCapAnalysis(String entityId, String analysisId, JsonNode event, String variableSubstitutions, boolean useCachedAnalysisState, boolean resetState) 
+	{
+    	Object synchronizerForEntity;
+
+    	if (useMicroStream)
+    		return runCaplAnalysis(entityId, analysisId, event, variableSubstitutions, useCachedAnalysisState, resetState);
+    	
+		synchronized (entitiesSemaphores)
+    	{
+    		synchronizerForEntity = entitiesSemaphores.get(entityId);
     		if (synchronizerForEntity == null)
     		{
     			synchronizerForEntity = new Object();
-    			ENTITIES_SEMAPHORES.put(entityId, synchronizerForEntity);
+    			entitiesSemaphores.put(entityId, synchronizerForEntity);
     		}
     	}
     	
     	synchronized (synchronizerForEntity)
     	{
-    		if (resetState)
-    		{
-    			cachedEntityId = null;
-    			cachedAnalysisId = null;
-    			cachedCapAnalysis = null;
-    			cachedAnalysisPathAndFileName = null;
-    			cachedState = null;
-    			
-    			if (LOG.isTraceEnabled())
-					LOG.trace("Resetting cached and persistent state");
-    		}
-    		
-    		if (useCachedAnalysisState && cachedEntityId != null && cachedAnalysisId != null && cachedCapAnalysis != null && cachedState != null)
-    			if (cachedEntityId.equals(entityId) && cachedAnalysisId.equals(analysisId))
-    			{
-    				capAnalysis = cachedCapAnalysis;
-    				retrievedState = cachedState;
-    				numberEvents = retrievedState.get(1).get("*numberEvents*");
-    				if (numberEvents == null)
-    					return JsonManager.generateResponseObject("The cached analysis state does not contain the required *numberEvents* CAPL value");
-    				retrievedState.get(1).put("*numberEvents*", new CaplValue(numberEvents.getNumberValue() + 1d));
-    				capAnalysisPathAndFileName = cachedAnalysisPathAndFileName;
-    				
-    				if (LOG.isTraceEnabled())
-    					LOG.trace("Using cached analysis state");
-    			}
-    			else return JsonManager.generateResponseObject("The cached analysis was generated for a different entity / analysis ID combination and is thus invalid: " +
-    													  	   "cached entity ID = \"" + cachedEntityId + "\", new entity ID = \"" + entityId + "\", " +
-    													  	   "cached analysis ID = \"" + cachedAnalysisId + "\", new analysis ID = \"" + analysisId + "\"");
-    		else
-    		{
-	    		if (isEmpty(analysisId))
-		    	{
-		    		LOG.error("The \"analysisId\" must not be empty");
-		    		return JsonManager.generateResponseObject("The analysisId must not be empty");
-		    	}
-		    	capAnalysisPathAndFileName = analysisDirectory + analysisId + ".capl";
-		    	
-				if (!FileUtilities.checkFile(capAnalysisPathAndFileName, false))
-		    	{
-		    		LOG.error("\"" + capAnalysisPathAndFileName + "\" does not match any CAP analysis in directory \"" + analysisDirectory + "\"");
-		    		return JsonManager.generateResponseObject("The \"analysisId\" (\"" + analysisId + "\") is invalid");
-		    	}
-		    	capAnalysis = FileUtilities.getFileContent(capAnalysisPathAndFileName);
-		    	if (isEmpty(capAnalysis))
-		    	{
-		    		LOG.error("Specified CAP analysis script \"" + capAnalysisPathAndFileName + "\" is empty");
-		    		return JsonManager.generateResponseObject("The CAP analysis with \"analysisId\" \"" + analysisId + "\" is invalid");
-		    	}
-		    	capAnalysis = instantiateAnalysis(capAnalysis, variableSubstitutions);
-		    	if (capAnalysis == null)
-					return JsonManager.generateResponseObject("Unable to instantiate the CAP analysis with the given \"variableSubstitutions\" parameters");
-		    	
-		    	if (LOG.isTraceEnabled())
-		    		LOG.trace("Retrieving state for CAP analysis \"" + capAnalysisPathAndFileName + "\" for entity \"" + entityId + "\"");
-		    	
-		    	if (!useMicroStream)
-		    	{
-		    		persistentState = new PersistentState(stateDataDirectory);
-			    	retrievedState = persistentState.retrieveState(capAnalysisPathAndFileName, analysisId, entityId, resetState);
-		    		if (retrievedState == null)
-		    			return JsonManager.generateResponseObject("Unable to read stored entity state of CAP analysis with \"analysisId\" \"" + analysisId + "\" for entity \"" + entityId + "\"");
-		    	}
-    		}
-	        
-	        if (LOG.isTraceEnabled())
-	    		LOG.trace("Parsing and interpreting CAP analysis \"" + capAnalysisPathAndFileName + "\" for entity \"" + entityId + "\"");
-	    	try
-	    	{
-	    		capAnalysisReader = new StringReader(capAnalysis);
-	    	} catch (Exception e)
-	    	{
-	    	  	StackTraceLogger.log("Unable to process specified CAP analysis", Level.ERROR, e, LOG);
-	    	  	return JsonManager.generateResponseObject("Unable to read the CAP analysis with \"analysisId\" \"" + analysisId + "\"");
-	    	}
-	    	
-	    	caplInterpreter = new CaplInterpreter(capAnalysisReader);
-	    	
-	    	if (useMicroStream)
-	    	{
-	    		analysisStateData = allAnalysesStateDataField.makeAnalysisState(analysisId, entityId, new File(capAnalysisPathAndFileName).lastModified());
-	    		analysisResults = caplInterpreter.analyzeEvent(analysisId, analysisStateData[0].getAnalysisState(), analysisStateData[1].getAnalysisState(), event);
-	    		allAnalysesStateDataField.saveAnalysisState(analysisId, entityId, analysisStateData[0], analysisStateData[0]);
-	    	}
-	    	else analysisResults = caplInterpreter.analyzeEvent(analysisId, retrievedState.get(0), retrievedState.get(1), event);
-			if (!analysisResults.get("success").asBoolean())
-				return JsonManager.generateResponseObject("Evaluation of CAP analysis with \"analysisId\" \"" + analysisId + "\" for entity \"" + entityId + "\" failed");
-			
-			if (!useMicroStream)
-			{
-				if (useCachedAnalysisState)
-				{
-					cachedEntityId = entityId;
-					cachedAnalysisId = analysisId;
-					cachedCapAnalysis = capAnalysis;
-					cachedAnalysisPathAndFileName = capAnalysisPathAndFileName;
-					cachedState = retrievedState;
-				}
-				else if (!persistentState.saveState(analysisId, entityId, analysisResults))
-					return JsonManager.generateResponseObject("Unable to save state of CAP analysis with \"analysisId\" \"" + analysisId + "\" for entity \"" + entityId + "\"");
-			}
-				
-			analysisResults.remove("analysisState");
-			analysisResults.remove("entityState");
-			
-			return analysisResults;
+    		return runCaplAnalysis(entityId, analysisId, event, variableSubstitutions, useCachedAnalysisState, resetState);
     	}
 	}
 	
@@ -588,8 +619,6 @@ public class CapApiServer implements CommandLineRunner
 	{
 		storageManagerField = storageManager;
 		allAnalysesStateDataField = allAnalysesStateData;
-		
-		LOG.info("Initialized embedded storage manager");
 	}
 	
 	@Override
@@ -615,6 +644,7 @@ public class CapApiServer implements CommandLineRunner
 		logConfigurationParameter("eventBufferLength", eventBufferLength, 100);
 		logConfigurationParameter("deleteEventFilesAfterDays", deleteEventFilesAfterDays, 90);
 		logConfigurationParameter("prettyPrintLoggedJsonEvents", prettyPrintLoggedJsonEvents, false);
+		logConfigurationParameter("one.microstream.use", useMicroStream, true);
     	
     	if (!analysisDirectory.endsWith(File.separator))
 			analysisDirectory += File.separator;
@@ -648,7 +678,16 @@ public class CapApiServer implements CommandLineRunner
 		
 		CaplInterpreter.setEventRecorder(new EventRecorder(eventFileDirectory, deleteEventFilesAfterDays, eventBufferLength, prettyPrintLoggedJsonEvents));
 		
+		if (useMicroStream)
+			LOG.info("Using MicroStream embedded Java storage manager");
+		else
+		{
+			entitiesSemaphores = new HashMap<>();
+			LOG.info("Using JSON analysis state file persistence");
+		}
+		
 		new StatePurger().start();
+
 		
 		ConsoleOutputter.print(true, "Ready");
 		
@@ -710,17 +749,17 @@ public class CapApiServer implements CommandLineRunner
 	{
 		terminated = true;
 		
-		synchronized(ENTITIES_SEMAPHORES)
+		try
 		{
-			ENTITIES_SEMAPHORES.notifyAll();
-		}
-
-		if (useMicroStream)
-			try
+			storageManagerField.shutdown();
+		} catch (Throwable t)
+		{}
+		
+		if (!useMicroStream)
+			synchronized(entitiesSemaphores)
 			{
-				storageManagerField.shutdown();
-			} catch (Exception e)
-			{}
+				entitiesSemaphores.notifyAll();
+			}
 		
 		if (consoleOutput)
 			ConsoleOutputter.print(true, "Shutting down");

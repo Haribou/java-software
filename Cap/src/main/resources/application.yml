@@ -55,9 +55,9 @@ spring:
 # trustStorePassword: Junbald-8
 
 one.microstream:
-   on: true
+   use: true
    storage-directory: ./stateData
    backup-directory: ./stateDataBackup
-   channel-count: 4
+   channel-count: 1
    housekeeping-interval: 300000 # 5 minutes
    entity-cache-timeout: 31536000000 # 365 days
