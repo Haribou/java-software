@@ -62,8 +62,6 @@ public class CapApiServer implements CommandLineRunner
 	
 	private final static Map<String, Object> ENTITIES_SEMAPHORES = new HashMap<>();
 	
-	private final static boolean USE_MICRO_STREAM = true;
-	
 	private static AllAnalysesStates allAnalysesStateDataField;
 	
 	private EmbeddedStorageManager storageManagerField; 
@@ -112,6 +110,9 @@ public class CapApiServer implements CommandLineRunner
 	
 	@Value("${stateDataPurgeIntervalMins:720}")
 	private int stateDataPurgeIntervalMinutes;
+	
+	@Value("${one.microstream.on:true}")
+	private boolean useMicroStream;
 	
 	private String cachedAnalysisId,
 				   cachedEntityId,
@@ -350,7 +351,7 @@ public class CapApiServer implements CommandLineRunner
     	
     	CaplValue numberEvents;
     	
-    	List<Map<String, CaplValue>> retrievedState;
+    	List<Map<String, CaplValue>> retrievedState = null;
     	
 		synchronized (ENTITIES_SEMAPHORES)
     	{
@@ -420,11 +421,7 @@ public class CapApiServer implements CommandLineRunner
 		    	if (LOG.isTraceEnabled())
 		    		LOG.trace("Retrieving state for CAP analysis \"" + capAnalysisPathAndFileName + "\" for entity \"" + entityId + "\"");
 		    	
-		    	if (USE_MICRO_STREAM)
-		    	{
-		    		
-		    	}
-		    	else 
+		    	if (!useMicroStream)
 		    	{
 		    		persistentState = new PersistentState(stateDataDirectory);
 			    	retrievedState = persistentState.retrieveState(capAnalysisPathAndFileName, analysisId, entityId, resetState);
@@ -446,7 +443,7 @@ public class CapApiServer implements CommandLineRunner
 	    	
 	    	caplInterpreter = new CaplInterpreter(capAnalysisReader);
 	    	
-	    	if (USE_MICRO_STREAM)
+	    	if (useMicroStream)
 	    	{
 	    		analysisStateData = allAnalysesStateDataField.makeAnalysisState(analysisId, entityId, new File(capAnalysisPathAndFileName).lastModified());
 	    		analysisResults = caplInterpreter.analyzeEvent(analysisId, analysisStateData[0].getAnalysisState(), analysisStateData[1].getAnalysisState(), event);
@@ -456,7 +453,7 @@ public class CapApiServer implements CommandLineRunner
 			if (!analysisResults.get("success").asBoolean())
 				return JsonManager.generateResponseObject("Evaluation of CAP analysis with \"analysisId\" \"" + analysisId + "\" for entity \"" + entityId + "\" failed");
 			
-			if (!USE_MICRO_STREAM)
+			if (!useMicroStream)
 			{
 				if (useCachedAnalysisState)
 				{
@@ -544,7 +541,7 @@ public class CapApiServer implements CommandLineRunner
 				
 				try
 		    	{
-					if (USE_MICRO_STREAM)
+					if (useMicroStream)
 						resultObject = XThreads.executeSynchronized(new AnalysisExecutor(entityIds.get(0), analysisIds.get(0), eventObject, variableSubstitutions, useCachedAnalysisState, resetState));
 					else resultObject = executeCapAnalysis(entityIds.get(0), analysisIds.get(0), eventObject, variableSubstitutions, useCachedAnalysisState, resetState);
 		    	} catch (Exception e)
@@ -562,7 +559,7 @@ public class CapApiServer implements CommandLineRunner
 							break;
 						try
 						{
-							if (USE_MICRO_STREAM)
+							if (useMicroStream)
 								resultObject = XThreads.executeSynchronized(new AnalysisExecutor(entityIds.get(index), analysisIds.get(index), outputObject, variableSubstitutions, useCachedAnalysisState, resetState));
 							else resultObject = executeCapAnalysis(entityIds.get(index), analysisIds.get(index), outputObject, variableSubstitutions, useCachedAnalysisState, resetState);
 							if (!resultObject.get("success").asBoolean())
@@ -717,12 +714,13 @@ public class CapApiServer implements CommandLineRunner
 		{
 			ENTITIES_SEMAPHORES.notifyAll();
 		}
-		
-		try
-		{
-			storageManagerField.shutdown();
-		} catch (Exception e)
-		{}
+
+		if (useMicroStream)
+			try
+			{
+				storageManagerField.shutdown();
+			} catch (Exception e)
+			{}
 		
 		if (consoleOutput)
 			ConsoleOutputter.print(true, "Shutting down");

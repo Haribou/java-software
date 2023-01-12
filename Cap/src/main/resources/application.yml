@@ -55,6 +55,7 @@ spring:
 # trustStorePassword: Junbald-8
 
 one.microstream:
+   on: true
    storage-directory: ./stateData
    backup-directory: ./stateDataBackup
    channel-count: 4

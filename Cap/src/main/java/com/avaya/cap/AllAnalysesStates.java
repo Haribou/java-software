@@ -86,3 +86,4 @@ class AllAnalysesStates
 		else storageManagerField.store(analysisVariablesState);
 	}
 }
+	

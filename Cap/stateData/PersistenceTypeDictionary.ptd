@@ -452,3 +452,44 @@
 	java.util.HashMap com.avaya.cap.AllAnalysesStates#allAnalysisConstantsStates,
 	java.util.HashMap com.avaya.cap.AllAnalysesStates#allAnalysisVariablesStates,
 }
+0000000000001000068 com.avaya.cap.AnalysisState{
+	java.util.HashMap com.avaya.cap.AnalysisState#analysisStateField          ,
+	long              com.avaya.cap.AnalysisState#lastAnalysisStateChangeField,
+	boolean           com.avaya.cap.AnalysisState#isNewState                  ,
+}
+0000000000001000069 com.avaya.cap.CaplValue{
+	com.avaya.cap.ValueDataType com.avaya.cap.CaplValue#valueDataTypeField   ,
+	com.avaya.cap.Mutability    com.avaya.cap.CaplValue#mutabilityField      ,
+	java.lang.String            com.avaya.cap.CaplValue#stringValueField     ,
+	java.util.Set               com.avaya.cap.CaplValue#setValueField        ,
+	java.util.Map               com.avaya.cap.CaplValue#mapValueField        ,
+	java.util.List              com.avaya.cap.CaplValue#listValueField       ,
+	double                      com.avaya.cap.CaplValue#numberValueField     ,
+	boolean                     com.avaya.cap.CaplValue#booleanValueField    ,
+	int                         com.avaya.cap.CaplValue#capacityField        ,
+	long                        com.avaya.cap.CaplValue#timeWindowStartField ,
+	long                        com.avaya.cap.CaplValue#timeWindowLengthField,
+}
+0000000000001000070 com.avaya.cap.ValueDataType{
+	enum STRING,
+	enum NUMBER,
+	enum BOOLEAN,
+	enum SET,
+	enum MAP,
+	enum LIST,
+	enum NA,
+	java.lang.String java.lang.Enum#name   ,
+	int              java.lang.Enum#ordinal,
+}
+0000000000001000071 com.avaya.cap.Mutability{
+	enum CONSTANT,
+	enum VARIABLE,
+	java.lang.String java.lang.Enum#name   ,
+	int              java.lang.Enum#ordinal,
+}
+0000000000001000072 java.util.Set{}
+0000000000001000073 java.util.Map{}
+0000000000001000074 java.util.List{}
+0000000000001000075 java.util.Collections$SetFromMap{
+	java.util.Map java.util.Collections$SetFromMap#m,
+}

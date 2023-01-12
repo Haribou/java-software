@@ -18,6 +18,11 @@ import java.util.Set;
 
 class CaplCollection
 {
+	private CaplCollection()
+	{
+		// Don't instantiate this class - all methods are static.
+	}
+	
 	static CaplValue getSet()
 	{
 		return new CaplValue(new HashSet<CaplValue>(), Integer.MAX_VALUE);
