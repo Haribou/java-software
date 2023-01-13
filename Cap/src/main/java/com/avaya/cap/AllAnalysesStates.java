@@ -57,7 +57,7 @@ public class AllAnalysesStates
 			else if (existingVariablesStates.containsKey(entityId))
 			{
 				analysisStates[1] = existingVariablesStates.get(entityId);
-				analysisStates[1].getAnalysisState().put("*numberEvents*", new CaplValue(analysisStates[1].getAnalysisState().get("*numberEvents*").getNumberValue() + 1l));
+				analysisStates[1].update(Mutability.VARIABLE);
 			}
 			else analysisStates[1] = new AnalysisState(Mutability.VARIABLE);
 		}
@@ -104,7 +104,7 @@ public class AllAnalysesStates
 	
 	HashMap<String, HashMap<String, AnalysisState>> getAllAnalysisVariablesStates()
 	{
-		return getAllAnalysisVariablesStates();
+		return allAnalysisVariablesStates;
 	}
 }
 	

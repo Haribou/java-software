@@ -225,9 +225,19 @@ public class CaplValue
 		return numberValueField;
 	}
 	
-	public void addNumberValue(double add)
+	public void modifyNumberValue(String operation, double value)
 	{
-		numberValueField += add;
+		if (operation.equals("set"))
+			numberValueField = value;
+		else if (operation.equals("add"))
+			numberValueField += value;
+		else if (operation.equals("subtract"))
+			numberValueField -= value;
+		else if (operation.equals("mult"))
+			numberValueField *= value;
+		else if (operation.equals("div"))
+			numberValueField /= value;
+		else throw new IllegalArgumentException("\"" + operation + "\" is not a valid operation");
 	}
 	
 	public String getStringValue()

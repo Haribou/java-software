@@ -19,6 +19,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -60,9 +61,9 @@ public class CapApiServer implements CommandLineRunner
 
 	private final static MultiLogger MULTI_LOGGER = new MultiLogger(LOG, SECURITY_LOG);
 	
-	private static Map<String, Object> entitiesSemaphores = null;
+	private final static Map<String, Object> ENTITIES_SEMAPHORE = new HashMap<>();
 	
-	private static AllAnalysesStates allAnalysesStateDataField;
+	private static AllAnalysesStates allAnalysesStatesField;
 	
 	private EmbeddedStorageManager storageManagerField; 
 	
@@ -153,12 +154,40 @@ public class CapApiServer implements CommandLineRunner
 	{
 		private class Purger implements Runnable
 		{
-
 			@Override
 			public void run()
 			{
-				// TODO Auto-generated method stub
+				final long now = System.currentTimeMillis();
 				
+				double entitiesExpireAt;
+				
+				Entry<String, AnalysisState> oneAnalysisState;
+				
+				Iterator<Entry<String, AnalysisState>> analysisStates;
+				
+				Iterator<AnalysisState> entityStates;
+				
+				HashMap<String, AnalysisState> entityStatesForOneAnalysis;
+				
+				CaplValue expirationCaplValue;
+				
+				analysisStates = allAnalysesStatesField.getAllAnalysisConstantsStates().entrySet().iterator();
+				while (analysisStates.hasNext())
+				{
+					oneAnalysisState = analysisStates.next();
+					expirationCaplValue = oneAnalysisState.getValue().getAnalysisState().get("*expires*");
+					if (expirationCaplValue != null)
+					{
+						entitiesExpireAt = now - expirationCaplValue.getNumberValue();
+						entityStatesForOneAnalysis = allAnalysesStatesField.getAllAnalysisVariablesStates().get(oneAnalysisState.getKey());
+						entityStates = entityStatesForOneAnalysis.values().iterator();
+						while (entityStates.hasNext())
+							if (entityStates.next().getLastAnalysisChange() < entitiesExpireAt)
+								entityStates.remove();
+						if (entityStatesForOneAnalysis.size() == 0)
+							analysisStates.remove();
+					}
+				}
 			}
 		}
 		
@@ -189,20 +218,33 @@ public class CapApiServer implements CommandLineRunner
 			
 			Purger purger = null;
 			
-			LOG.info("Starting state files purger thread for directory \"" + stateDataDirectory + "\"...");
+			LOG.info("Starting state purger thread...");
 			
 			while (true)
 				if (useMicroStream)
-				{
-					if (purger == null)
-						purger = new Purger();
-					XThreads.executeSynchronized(purger);
-				}
+					try
+					{
+						synchronized(ENTITIES_SEMAPHORE)
+						{
+							ENTITIES_SEMAPHORE.wait(sleepTime);
+							if (terminated)
+							{
+								LOG.info("Shutting down state purger thread");
+								return;
+							}
+							if (LOG.isTraceEnabled())
+								LOG.trace("Running state purger thread");
+							if (purger == null)
+								purger = new Purger();
+							XThreads.executeSynchronized(purger);
+						}
+					} catch (InterruptedException e)
+					{}
 				else try
 				{
-					synchronized(entitiesSemaphores)
+					synchronized(ENTITIES_SEMAPHORE)
 					{
-						entitiesSemaphores.wait(sleepTime);
+						ENTITIES_SEMAPHORE.wait(sleepTime);
 						if (terminated)
 						{
 							LOG.info("Shutting down state files purger thread");
@@ -224,7 +266,7 @@ public class CapApiServer implements CommandLineRunner
 						    		analysisStateFileObject = PersistentState.parseJsonFile(stateDataDirectory + analysisStateFileName);
 						    		if (analysisStateFileObject.has("*expires*"))
 						    		{
-						    			expires = ((long) analysisStateFileObject.get("*expires*").getAsDouble()) * 60000L;
+						    			expires = ((long) analysisStateFileObject.get("*expires*").getAsDouble());
 						    			hasEntityStateFiles = false;
 						    			if (expires > 0L)
 						    			{
@@ -430,7 +472,7 @@ public class CapApiServer implements CommandLineRunner
 	    		LOG.trace("Retrieving state for CAP analysis \"" + capAnalysisPathAndFileName + "\" for entity \"" + entityId + "\"");
 	    	
 	    	if (useMicroStream)
-	    		analysisStateData = allAnalysesStateDataField.makeAnalysisState(analysisId, entityId, capAnalysisFile.lastModified());
+	    		analysisStateData = allAnalysesStatesField.makeAnalysisState(analysisId, entityId, capAnalysisFile.lastModified());
 	    	else
 	    	{
 	    		persistentState = new PersistentState(stateDataDirectory);
@@ -456,7 +498,7 @@ public class CapApiServer implements CommandLineRunner
     	if (useMicroStream)
     	{
     		analysisResults = caplInterpreter.analyzeEvent(analysisId, analysisStateData[0].getAnalysisState(), analysisStateData[1].getAnalysisState(), event);
-    		allAnalysesStateDataField.saveAnalysisState(analysisId, entityId, analysisStateData[0], analysisStateData[1]);
+    		allAnalysesStatesField.saveAnalysisState(analysisId, entityId, analysisStateData[0], analysisStateData[1]);
     	}
     	else analysisResults = caplInterpreter.analyzeEvent(analysisId, retrievedState.get(0), retrievedState.get(1), event);
 		if (!analysisResults.get("success").asBoolean())
@@ -489,13 +531,13 @@ public class CapApiServer implements CommandLineRunner
     	if (useMicroStream)
     		return runCaplAnalysis(entityId, analysisId, event, variableSubstitutions, useCachedAnalysisState, resetState);
     	
-		synchronized (entitiesSemaphores)
+		synchronized (ENTITIES_SEMAPHORE)
     	{
-    		synchronizerForEntity = entitiesSemaphores.get(entityId);
+    		synchronizerForEntity = ENTITIES_SEMAPHORE.get(entityId);
     		if (synchronizerForEntity == null)
     		{
     			synchronizerForEntity = new Object();
-    			entitiesSemaphores.put(entityId, synchronizerForEntity);
+    			ENTITIES_SEMAPHORE.put(entityId, synchronizerForEntity);
     		}
     	}
     	
@@ -618,7 +660,7 @@ public class CapApiServer implements CommandLineRunner
 	public CapApiServer(EmbeddedStorageManager storageManager, AllAnalysesStates allAnalysesStateData)
 	{
 		storageManagerField = storageManager;
-		allAnalysesStateDataField = allAnalysesStateData;
+		allAnalysesStatesField = allAnalysesStateData;
 	}
 	
 	@Override
@@ -644,6 +686,10 @@ public class CapApiServer implements CommandLineRunner
 		logConfigurationParameter("eventBufferLength", eventBufferLength, 100);
 		logConfigurationParameter("deleteEventFilesAfterDays", deleteEventFilesAfterDays, 90);
 		logConfigurationParameter("prettyPrintLoggedJsonEvents", prettyPrintLoggedJsonEvents, false);
+		logConfigurationParameter("proxyOn", proxyOn, false);
+		logConfigurationParameter("proxyHostName", proxyHostName, "");
+		logConfigurationParameter("proxyPort", proxyPort, -1);
+		logConfigurationParameter("stateDataPurgeIntervalMinutes", stateDataPurgeIntervalMinutes, 720);
 		logConfigurationParameter("one.microstream.use", useMicroStream, true);
     	
     	if (!analysisDirectory.endsWith(File.separator))
@@ -680,11 +726,7 @@ public class CapApiServer implements CommandLineRunner
 		
 		if (useMicroStream)
 			LOG.info("Using MicroStream embedded Java storage manager");
-		else
-		{
-			entitiesSemaphores = new HashMap<>();
-			LOG.info("Using JSON analysis state file persistence");
-		}
+		else LOG.info("Using JSON analysis state file persistence");
 		
 		new StatePurger().start();
 
@@ -756,9 +798,9 @@ public class CapApiServer implements CommandLineRunner
 		{}
 		
 		if (!useMicroStream)
-			synchronized(entitiesSemaphores)
+			synchronized(ENTITIES_SEMAPHORE)
 			{
-				entitiesSemaphores.notifyAll();
+				ENTITIES_SEMAPHORE.notifyAll();
 			}
 		
 		if (consoleOutput)

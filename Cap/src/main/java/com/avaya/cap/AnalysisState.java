@@ -40,9 +40,24 @@ public class AnalysisState
 		}
 	}
 	
+	void update(Mutability mutability)
+	{
+		lastAnalysisStateChangeField = System.currentTimeMillis();
+		if (mutability == Mutability.VARIABLE)
+		{
+			analysisStateField.get("*numberEvents*").modifyNumberValue("add", 1l);
+			analysisStateField.get("*now*").modifyNumberValue("set", lastAnalysisStateChangeField);
+		}
+	}
+	
 	HashMap<String, CaplValue> getAnalysisState()
 	{
 		return analysisStateField;
+	}
+	
+	void setLastAnalysisChange(long timestamp)
+	{
+		lastAnalysisStateChangeField = timestamp;
 	}
 
 	long getLastAnalysisChange()

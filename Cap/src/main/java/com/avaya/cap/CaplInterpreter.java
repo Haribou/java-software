@@ -324,7 +324,7 @@ public class CaplInterpreter implements CaplInterpreterConstants {
                                                 frequency = valueFrequencyMap.get(oneCollectionElement);
                                                 if (frequency == null)
                                                         valueFrequencyMap.put(oneCollectionElement, new CaplValue(1d));
-                                                else frequency.addNumberValue(1d);
+                                                else frequency.modifyNumberValue("add", 1d);
                                         }
                                         else if (oneCollectionElement.getValueDataType() == ValueDataType.STRING)
                                         {
@@ -336,7 +336,7 @@ public class CaplInterpreter implements CaplInterpreterConstants {
                                                         frequency = valueFrequencyMap.get(matchedSubstringCaplValue);
                                                         if (frequency == null)
                                                                 valueFrequencyMap.put(matchedSubstringCaplValue, new CaplValue(1d));
-                                                        else frequency.addNumberValue(1d);
+                                                        else frequency.modifyNumberValue("add", 1d);
                                                 }
                                         }
                                 }
@@ -425,7 +425,7 @@ public class CaplInterpreter implements CaplInterpreterConstants {
                                         frequency = valueFrequencyMap.get(matchedSubstringCaplValue);
                                         if (frequency == null)
                                                 valueFrequencyMap.put(matchedSubstringCaplValue, new CaplValue(1d));
-                                        else frequency.addNumberValue(1d);
+                                        else frequency.modifyNumberValue("add", 1d);
                                 }
 
                                 if (rankingNumberUnit.kind == CaplInterpreterConstants.PCT)
@@ -3833,7 +3833,10 @@ public class CaplInterpreter implements CaplInterpreterConstants {
                         {if (true) return false;}
                 if (expiresCaplValue.getValueDataType() == ValueDataType.NUMBER)
                         if (expiresCaplValue.getNumberValue() >= 0d)
+                        {
+                                expiresCaplValue.modifyNumberValue("mult", 60000L);
                                 stateCaplValues.put("*expires*", expiresCaplValue);
+                        }
                         else
                         {
                                 printOperandDataTypeError(new String[] { "NON-NEGATIVE NUMBER" }, expiresCaplValue, ":");

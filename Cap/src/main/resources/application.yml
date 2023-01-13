@@ -46,13 +46,7 @@ eventFileDirectory: ./eventData
 
 stateDataDirectory: ./stateData
 
-spring:
-   jackson:
-      serialization:
-         indent_output: true
-
-# trustStorePathAndName: security/www_slateai_com
-# trustStorePassword: Junbald-8
+stateDataPurgeIntervalMins: 1
 
 one.microstream:
    use: true
@@ -61,3 +55,11 @@ one.microstream:
    channel-count: 1
    housekeeping-interval: 300000 # 5 minutes
    entity-cache-timeout: 31536000000 # 365 days
+   
+spring:
+   jackson:
+      serialization:
+         indent_output: true
+
+# trustStorePathAndName: security/www_slateai_com
+# trustStorePassword: Junbald-8
