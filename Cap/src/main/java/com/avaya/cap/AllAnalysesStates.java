@@ -75,7 +75,6 @@ public class AllAnalysesStates
 			allAnalysisConstantsStates.put(analysisId, analysisConstantsState);
 			storageManagerField.store(allAnalysisConstantsStates);
 		}
-		else storageManagerField.store(analysisConstantsState);
 		
 		if (analysisVariablesState.getIsNewState())
 		{
