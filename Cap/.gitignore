@@ -12,8 +12,8 @@ target/
 *.ckp
 *.db
 **/*.json
-logs/
-stateData/
-stateDataBackup/
+logs/**
+stateData/**
+stateDataBackup/**
 
 
