@@ -161,6 +161,9 @@ public class CapApiServer implements CommandLineRunner
 				
 				double entitiesExpireAt;
 				
+				int removedAnalyses = 0,
+					removedEntities = 0;
+				
 				Entry<String, AnalysisState> oneAnalysisState;
 				
 				Iterator<Entry<String, AnalysisState>> analysisStates;
@@ -183,11 +186,110 @@ public class CapApiServer implements CommandLineRunner
 						entityStates = entityStatesForOneAnalysis.values().iterator();
 						while (entityStates.hasNext())
 							if (entityStates.next().getLastAnalysisChange() < entitiesExpireAt)
+							{
 								entityStates.remove();
+								removedEntities++;
+							}
 						if (entityStatesForOneAnalysis.size() == 0)
+						{
 							analysisStates.remove();
+							removedAnalyses++;
+						}
 					}
 				}
+				if (removedAnalyses + removedEntities > 0)
+					storageManagerField.store(allAnalysesStatesField);
+				
+				LOG.info(removedAnalyses + " analysis state(s) removed, " + removedEntities + " entity state(s) removed");
+			}
+			
+			void purge()
+			{
+				final Path stateDataDirectoryPath = FileSystems.getDefault().getPath(stateDataDirectory);
+				
+				Path analysisStateFilePath,
+					 entityStateFilePath;
+				
+				Iterator<Path> analysisStateFiles,
+							   entityStateFiles;
+				
+				int removedAnalyses = 0,
+					removedEntities = 0;
+				
+				final long now = System.currentTimeMillis();
+				
+				long expires;
+				
+				String analysisStateFileName = null;
+				
+				File analysisStateFile,
+					 entityStateFile;
+				
+				JsonObject analysisStateFileObject;
+				
+				boolean hasEntityStateFiles;
+				
+			    try
+			    {
+			    	analysisStateFiles = Files.newDirectoryStream(stateDataDirectoryPath, "*-analysisState.json").iterator();
+			    	while (analysisStateFiles.hasNext())
+			    		try
+				    	{
+			    			analysisStateFilePath = analysisStateFiles.next();
+			    			analysisStateFileName = analysisStateFilePath.getFileName().toString();
+				    		analysisStateFileObject = PersistentState.parseJsonFile(stateDataDirectory + analysisStateFileName);
+				    		if (analysisStateFileObject.has("*expires*"))
+				    		{
+				    			expires = ((long) analysisStateFileObject.get("*expires*").getAsDouble());
+				    			hasEntityStateFiles = false;
+				    			if (expires > 0L)
+				    			{
+				    				expires = now - expires;
+					    			entityStateFiles = Files.newDirectoryStream(stateDataDirectoryPath, analysisStateFileName.substring(0, analysisStateFileName.length() - "-analysisState.json".length()) + "-*-entityState.json").iterator();
+				    				while (entityStateFiles.hasNext())
+				    					try
+					    				{
+				    						entityStateFilePath = entityStateFiles.next();
+				    						entityStateFile = entityStateFilePath.toFile();
+				    						if (expires > entityStateFile.lastModified())
+							    			{
+				    							if (entityStateFile.delete())
+						    					{
+						    						if (LOG.isTraceEnabled())
+						    							LOG.trace("Deleted expired entity state file \"" + entityStateFilePath.getFileName().toString() + "\"");
+						    						removedEntities++;
+						    					}
+						    					else LOG.warn("Unable to delete expired entity state file \"" + entityStateFilePath.getFileName().toString() + "\"");
+							    			}
+				    						else hasEntityStateFiles = true;
+					    				} catch (Exception e)
+				    					{
+					    					StackTraceLogger.log("Unable to delete expired entity state file", Level.WARN, e, LOG);
+				    					}
+					    			
+				    				analysisStateFile = analysisStateFilePath.toFile();
+					    			if (!hasEntityStateFiles && expires > analysisStateFile.lastModified())
+					    			{
+					    				if (analysisStateFile.delete())
+					    				{
+					    					if (LOG.isTraceEnabled())
+					    						LOG.trace("Deleted expired analysis state file \"" + analysisStateFilePath.getFileName().toString() + "\"");
+					    					removedAnalyses++;
+					    				}
+					    				else LOG.trace("Unable to delete expired analysis state file \"" + analysisStateFilePath.getFileName().toString() + "\"");
+					    			}
+				    			}
+				    		}
+				    	} catch (Exception e)
+				    	{
+				    		StackTraceLogger.log("Analysis state file \"" + analysisStateFileName + "\" does not contain a JSON object", Level.WARN, e, LOG);
+				    	}
+
+					LOG.info(removedAnalyses + " analysis state(s) removed, " + removedEntities + " entity state(s) removed");
+			    } catch (Exception e)
+			    {
+			    	StackTraceLogger.log("Unable to read analysis state files in directory \"" + stateDataDirectory + "\"", Level.ERROR, e, LOG);
+			    }
 			}
 		}
 		
@@ -196,122 +298,26 @@ public class CapApiServer implements CommandLineRunner
 		{
 			final long sleepTime = stateDataPurgeIntervalMinutes * 60000L;
 			
-			final Path stateDataDirectoryPath = FileSystems.getDefault().getPath(stateDataDirectory);
-			
-			Path analysisStateFilePath,
-				 entityStateFilePath;
-			
-			Iterator<Path> analysisStateFiles,
-						   entityStateFiles;
-			
-			long now,
-				 expires;
-			
-			String analysisStateFileName = null;
-			
-			File analysisStateFile,
-				 entityStateFile;
-			
-			JsonObject analysisStateFileObject;
-			
-			boolean hasEntityStateFiles;
-			
-			Purger purger = null;
+			final Purger purger = new Purger();
 			
 			LOG.info("Starting state purger thread...");
 			
 			while (true)
-				if (useMicroStream)
-					try
-					{
-						synchronized(ENTITIES_SEMAPHORE)
-						{
-							ENTITIES_SEMAPHORE.wait(sleepTime);
-							if (terminated)
-							{
-								LOG.info("Shutting down state purger thread");
-								return;
-							}
-							if (LOG.isTraceEnabled())
-								LOG.trace("Running state purger thread");
-							if (purger == null)
-								purger = new Purger();
-							XThreads.executeSynchronized(purger);
-						}
-					} catch (InterruptedException e)
-					{}
-				else try
+				try
 				{
 					synchronized(ENTITIES_SEMAPHORE)
 					{
 						ENTITIES_SEMAPHORE.wait(sleepTime);
 						if (terminated)
 						{
-							LOG.info("Shutting down state files purger thread");
+							LOG.info("Shutting down state purger thread");
 							return;
 						}
 						if (LOG.isTraceEnabled())
-							LOG.trace("Running state files purger thread");
-						
-						now = System.currentTimeMillis();
-						
-					    try
-					    {
-					    	analysisStateFiles = Files.newDirectoryStream(stateDataDirectoryPath, "*-analysisState.json").iterator();
-					    	while (analysisStateFiles.hasNext())
-					    		try
-						    	{
-					    			analysisStateFilePath = analysisStateFiles.next();
-					    			analysisStateFileName = analysisStateFilePath.getFileName().toString();
-						    		analysisStateFileObject = PersistentState.parseJsonFile(stateDataDirectory + analysisStateFileName);
-						    		if (analysisStateFileObject.has("*expires*"))
-						    		{
-						    			expires = ((long) analysisStateFileObject.get("*expires*").getAsDouble());
-						    			hasEntityStateFiles = false;
-						    			if (expires > 0L)
-						    			{
-						    				expires = now - expires;
-							    			entityStateFiles = Files.newDirectoryStream(stateDataDirectoryPath, analysisStateFileName.substring(0, analysisStateFileName.length() - "-analysisState.json".length()) + "-*-entityState.json").iterator();
-						    				while (entityStateFiles.hasNext())
-						    					try
-							    				{
-						    						entityStateFilePath = entityStateFiles.next();
-						    						entityStateFile = entityStateFilePath.toFile();
-						    						if (expires > entityStateFile.lastModified())
-									    			{
-						    							if (entityStateFile.delete())
-								    					{
-								    						if (LOG.isTraceEnabled())
-								    							LOG.trace("Deleted expired entity state file \"" + entityStateFilePath.getFileName().toString() + "\"");
-								    					}
-								    					else LOG.warn("Unable to delete expired entity state file \"" + entityStateFilePath.getFileName().toString() + "\"");
-									    			}
-						    						else hasEntityStateFiles = true;
-							    				} catch (Exception e)
-						    					{
-							    					StackTraceLogger.log("Unable to delete expired entity state file", Level.WARN, e, LOG);
-						    					}
-							    			
-						    				analysisStateFile = analysisStateFilePath.toFile();
-							    			if (!hasEntityStateFiles && expires > analysisStateFile.lastModified())
-							    			{
-							    				if (analysisStateFile.delete())
-							    				{
-							    					if (LOG.isTraceEnabled())
-							    						LOG.trace("Deleted expired analysis state file \"" + analysisStateFilePath.getFileName().toString() + "\"");
-							    				}
-							    				else LOG.trace("Unable to delete expired analysis state file \"" + analysisStateFilePath.getFileName().toString() + "\"");
-							    			}
-						    			}
-						    		}
-						    	} catch (Exception e)
-						    	{
-						    		StackTraceLogger.log("Analysis state file \"" + analysisStateFileName + "\" does not contain a JSON object", Level.WARN, e, LOG);
-						    	}
-					    } catch (Exception e)
-					    {
-					    	StackTraceLogger.log("Unable to read analysis state files in directory \"" + stateDataDirectory + "\"", Level.ERROR, e, LOG);
-					    }
+							LOG.trace("Running state purger thread");
+						if (useMicroStream)
+							XThreads.executeSynchronized(purger);
+						else purger.purge();
 					}
 				} catch (InterruptedException e)
 				{}

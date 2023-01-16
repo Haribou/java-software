@@ -496,7 +496,7 @@ class PersistentState
 					   entityStateRetrieval;
 		
 		final long lastCaplAnalysisUpdate = resetState ? -1L : new File(caplAnalysisPathAndFileName).lastModified();
-		
+		LOG.debug("{{{"+lastCaplAnalysisUpdate);
 		List<Map<String, CaplValue>> result;
 		
 		analysisStateRetrieval = readStoredCaplValues(analysisId + "-analysisState", Mutability.CONSTANT, lastCaplAnalysisUpdate);

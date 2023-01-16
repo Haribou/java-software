@@ -2,7 +2,7 @@ settings:
 
 debug: true,
 recording: false,
-expires: 30; # In minutes!
+expires: 2; # In minutes!
 
 constants:
 
