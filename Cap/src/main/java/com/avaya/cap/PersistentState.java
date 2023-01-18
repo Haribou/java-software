@@ -455,17 +455,17 @@ class PersistentState
     		if (isEmptyOrBlank(jsonStateDataFileContent))
     			return new StateRetrieval(mutability);
     		
+    		now = System.currentTimeMillis();
     		stateDataElement = JsonParser.parseString(jsonStateDataFileContent);
     		stateDataObject = stateDataElement.getAsJsonObject();
     		if (stateDataObject.isJsonNull() && mutability == Mutability.VARIABLE)
     		{
     			stateCaplValues = new HashMap<>();
     			stateCaplValues.put("*numberEvents*", new CaplValue(Mutability.CONSTANT, 1d));
-    			stateCaplValues.put("*now*", new CaplValue(System.currentTimeMillis()));
+    			stateCaplValues.put("*now*", new CaplValue(now));
         		return new StateRetrieval(stateCaplValues);
     		}
     		
-    		now = System.currentTimeMillis();
     		stateDataElementDescriptor = parseCaplValue("", stateDataObject, mutability, now);
     		if (stateDataElementDescriptor == null)
     			return null;

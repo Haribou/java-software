@@ -30,14 +30,10 @@ public class CaplCollection
 	
 	public static CaplValue getSet(int capacity)
 	{
-		final Map<CaplValue, Boolean> setMap;
-		
 		if (capacity == Integer.MAX_VALUE)
 			return getSet();
 		
-		setMap = new CaplHashMap<CaplValue, Boolean>(capacity);
-		
-		return new CaplValue(Collections.newSetFromMap(setMap), capacity);
+		return new CaplValue(Collections.newSetFromMap(new CaplHashMap<CaplValue, Boolean>(capacity)), capacity);
 	}
 	
 	public static CaplValue getSet(CaplValue capacity)
@@ -58,8 +54,6 @@ public class CaplCollection
 	public static CaplValue getCombinedSet(CaplValue set1, CaplValue set2)
 	{
 		final Set<CaplValue> resultSet;
-		
-		final CaplHashMap<CaplValue, Boolean> setMap;
 		
 		int combinedCapacity;
 		
@@ -92,9 +86,7 @@ public class CaplCollection
    	  		combinedCapacity = Integer.MAX_VALUE;
    	  	}
 		
-		setMap = new CaplHashMap<CaplValue, Boolean>(combinedCapacity);
-		
-		resultSet = Collections.newSetFromMap(setMap);
+		resultSet = Collections.newSetFromMap(new CaplHashMap<CaplValue, Boolean>(combinedCapacity));
 		resultSet.addAll(set1.getSetValue());
 		resultSet.addAll(set2.getSetValue());
 		
@@ -104,8 +96,6 @@ public class CaplCollection
 	public static CaplValue getDifferenceSet(CaplValue set1, CaplValue set2, boolean intersect)
 	{
 		final Set<CaplValue> resultSet;
-		
-		final CaplHashMap<CaplValue, Boolean> setMap;
 		
 		if (set1.getTimeWindowStart() != set2.getTimeWindowStart() || set1.getTimeWindowLength() != set2.getTimeWindowLength())
 			return null;
@@ -131,9 +121,7 @@ public class CaplCollection
    	  		return new CaplValue(resultSet, Integer.MAX_VALUE);
 		}
 		
-		setMap = new CaplHashMap<CaplValue, Boolean>(set1.getCapacity());
-		
-		resultSet = Collections.newSetFromMap(setMap);
+		resultSet = Collections.newSetFromMap(new CaplHashMap<CaplValue, Boolean>(set1.getCapacity()));
 		resultSet.addAll(set1.getSetValue());
 		if (intersect)
 			resultSet.retainAll(set2.getSetValue());

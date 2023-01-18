@@ -7,17 +7,19 @@
 package com.avaya.cap;
 
 import java.util.HashMap;
+import java.util.Map.Entry;
 
+import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import one.microstream.integrations.spring.boot.types.Storage;
-import one.microstream.storage.embedded.types.EmbeddedStorageManager;
+import one.microstream.storage.types.StorageManager;
 
 @Storage
 public class AllAnalysesStates
 {
 	@Autowired
-	private transient EmbeddedStorageManager storageManagerField;
+	private transient StorageManager storageManagerField;
 	
 	private final HashMap<String, AnalysisState> allAnalysisConstantsStates = new HashMap<>();
 	
@@ -62,18 +64,33 @@ public class AllAnalysesStates
 			else analysisStates[1] = new AnalysisState(Mutability.VARIABLE);
 		}
 		
+		Logger LOG=Logger.getLogger(AllAnalysesStates.class);
+		LOG.debug("RETRIEVE");
+		LOG.debug("ANALYSIS: ");
+		if(allAnalysisConstantsStates.containsKey(analysisId))
+    	for(Entry<String, CaplValue> en:allAnalysisConstantsStates.get(analysisId).getAnalysisState().entrySet()) {LOG.debug(en.getKey()+"=>");LOG.debug(en.getValue().toString());}
+    	LOG.debug("ENTITIES: ");
+    	if (allAnalysisVariablesStates.containsKey(analysisId)&&allAnalysisVariablesStates.get(analysisId).containsKey(entityId))
+    	for(Entry<String, CaplValue> en:allAnalysisVariablesStates.get(analysisId).get(entityId).getAnalysisState().entrySet()) {LOG.debug(en.getKey()+"=>");LOG.debug(en.getValue().toString());}
+		
 		return analysisStates;
 	}
 
 	void saveAnalysisState(String analysisId, String entityId, AnalysisState analysisConstantsState, AnalysisState analysisVariablesState)
 	{
+		Logger LOG=Logger.getLogger(AllAnalysesStates.class);
 		HashMap<String, AnalysisState> existingVariablesStates;
-		
+		LOG.debug("SAVE");
+		LOG.debug("ANALYSIS: ");
+    	for(Entry<String, CaplValue> en:analysisConstantsState.getAnalysisState().entrySet()) {LOG.debug(en.getKey()+"=>");LOG.debug(en.getValue().toString());}
+    	LOG.debug("ENTITIES: ");
+    	for(Entry<String, CaplValue> en:analysisVariablesState.getAnalysisState().entrySet()) {LOG.debug(en.getKey()+"=>");LOG.debug(en.getValue().toString());}
+    	
 		if (analysisConstantsState.getIsNewState())
-		{
+		{LOG.debug("STORING NEW ANALYSIS");
 			analysisConstantsState.markAsExistingState();
 			allAnalysisConstantsStates.put(analysisId, analysisConstantsState);
-			storageManagerField.store(allAnalysisConstantsStates);
+			//storageManagerField.store(allAnalysisConstantsStates);
 		}
 		
 		if (analysisVariablesState.getIsNewState())
@@ -85,15 +102,20 @@ public class AllAnalysesStates
 				existingVariablesStates = new HashMap<>();
 				allAnalysisVariablesStates.put(analysisId, existingVariablesStates);
 				existingVariablesStates.put(entityId, analysisVariablesState);
-				storageManagerField.store(allAnalysisVariablesStates);
+				//storageManagerField.store(allAnalysisVariablesStates);LOG.debug("STORING ALL NEW ENTITIES");
 			}
 			else
 			{
 				existingVariablesStates.put(entityId, analysisVariablesState);
-				storageManagerField.store(existingVariablesStates);
+				//storageManagerField.store(existingVariablesStates);LOG.debug("STORING ONE NEW ENTITY");
 			}
 		}
-		else storageManagerField.store(analysisVariablesState);
+		else { /*storageManagerField.store(analysisVariablesState);LOG.debug("STORING ONE EXISTING ENTITY");*/}
+		
+		/** REMOVE **/
+    	storageManagerField.store(allAnalysisConstantsStates);
+    	storageManagerField.store(allAnalysisVariablesStates);
+    	/** **/
 	}
 	
 	HashMap<String, AnalysisState> getAllAnalysisConstantsStates()

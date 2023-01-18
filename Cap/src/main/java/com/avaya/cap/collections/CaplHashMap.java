@@ -11,16 +11,16 @@ import java.util.Map.Entry;
 
 public class CaplHashMap<S, T> extends LinkedHashMap<S, T>
 {
-	private int combinedCapacityField;
+	private int capacityField;
 	
-	public CaplHashMap(int combinedCapacity)
+	public CaplHashMap(int capacity)
 	{
-		combinedCapacityField = combinedCapacity;
+		capacityField = capacity;
 	}
 	
 	@Override
   	protected boolean removeEldestEntry(Entry<S, T> eldest)
   	{
-  	  	return size() > combinedCapacityField;
+  	  	return size() > capacityField;
   	}
 }

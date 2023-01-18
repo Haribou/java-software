@@ -408,8 +408,12 @@ public class CaplValue
 			case STRING: return "\"" + stringValueField + "\"";
 			case BOOLEAN: return booleanValueField + "";
 			case SET: collectionValues = "[ ";
-					  if (setValueField == null || setValueField.size() == 0)
+					  if (setValueField == null)
 					 	return collectionValues + " ]";
+					  LOG.debug("BEFORE SET ITERATION");
+					  LOG.debug(setValueField==null);
+					  LOG.debug(setValueField.size());
+					  LOG.debug(setValueField.iterator().hasNext());
 					  for (CaplValue oneElement: setValueField)
 					  {
 						 if (collectionValues.length() > 2)
@@ -418,7 +422,7 @@ public class CaplValue
 					  }
 					  return collectionValues + " ]";
 			case MAP: collectionValues = "{ ";
-				  	  if (mapValueField == null || mapValueField.size() == 0)
+				  	  if (mapValueField == null)
 				  		 return collectionValues + " }";
 					  for (Entry<String, CaplValue> oneElement: mapValueField.entrySet())
 					  {
@@ -430,7 +434,7 @@ public class CaplValue
 					  }
 					  return collectionValues + " }";
 			default: collectionValues = "[ ";
-					 if (listValueField == null || listValueField.size() == 0)
+					 if (listValueField == null)
 					 	return collectionValues + " ]";
 					 for (CaplValue oneElement: listValueField)
 					 {

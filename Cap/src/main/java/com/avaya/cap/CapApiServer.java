@@ -50,6 +50,7 @@ import com.google.gson.JsonObject;
 
 import one.microstream.concurrency.XThreads;
 import one.microstream.storage.embedded.types.EmbeddedStorageManager;
+import one.microstream.storage.types.StorageManager;
 
 @SpringBootApplication
 @RestController
@@ -65,7 +66,7 @@ public class CapApiServer implements CommandLineRunner
 	
 	private static AllAnalysesStates allAnalysesStatesField;
 	
-	private EmbeddedStorageManager storageManagerField; 
+	private StorageManager storageManagerField; 
 	
 	@Value("${consoleOutput:true}")
 	private boolean consoleOutput;
@@ -796,12 +797,6 @@ public class CapApiServer implements CommandLineRunner
 	public void shutdown() 
 	{
 		terminated = true;
-		
-		try
-		{
-			storageManagerField.shutdown();
-		} catch (Throwable t)
-		{}
 		
 		if (!useMicroStream)
 			synchronized(ENTITIES_SEMAPHORE)

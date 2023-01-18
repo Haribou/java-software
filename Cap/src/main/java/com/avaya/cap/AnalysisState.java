@@ -14,13 +14,14 @@ public class AnalysisState
 	
 	private long lastAnalysisStateChangeField;
 	
-	private boolean isNewState = true;
+	private boolean isNewState;
 	
 	public AnalysisState()
 	{}
 	
 	AnalysisState(Mutability mutability)
 	{
+		isNewState = true;
 		lastAnalysisStateChangeField = System.currentTimeMillis();
 		if (mutability == Mutability.VARIABLE)
 		{
@@ -31,6 +32,7 @@ public class AnalysisState
 	
 	void reinitialize(Mutability mutability)
 	{
+		isNewState = true;
 		analysisStateField.clear();
 		lastAnalysisStateChangeField = System.currentTimeMillis();
 		if (mutability == Mutability.VARIABLE)
