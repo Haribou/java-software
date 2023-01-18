@@ -2,7 +2,6 @@ bin/
 target/
 .settings/
 *.sh
-*.bat
 *.jar
 *.class
 *.key
