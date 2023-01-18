@@ -1,88 +1,62 @@
 package com.avaya.microstream;
 
-import java.util.Map.Entry;
+import java.util.Set;
 
 import javax.annotation.PreDestroy;
 
-import org.apache.log4j.Logger;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
-
-import one.microstream.concurrency.XThreads;
-import one.microstream.storage.embedded.types.EmbeddedStorageManager;
+import org.springframework.context.annotation.Configuration;
 
 @SpringBootApplication
-@RestController
+@Configuration
 public class Tester implements CommandLineRunner
 {
-	private static final Logger LOG = Logger.getLogger(Tester.class);
+	private static final int NUM_ADDED_ENTRIES = 10;
 
-	private EmbeddedStorageManager microStreamStorageManager;
+	private StateData stateDataField;
 	
-	private StateData stateData;
-	
-	private class StateUpdater implements Runnable
+	public Tester(StateData stateData)
 	{
-		private String keyField,
-					   valueField;
-		
-		StateUpdater(String key, String value)
+		stateDataField = stateData;
+		if (stateDataField.getStateData().size() == 0)
+			System.out.println("Persistent file storage is empty");
+		else
 		{
-			keyField = key;
-			valueField = value;
+			System.out.println("Loaded state data from persistent file storage:");
+			for (String onePersistedEntry: stateDataField.getStateData())
+				System.out.println(onePersistedEntry);
 		}
-
-		@Override
-		public void run()
-		{
-			String value = stateData.getStateData().get(keyField);
-			
-			if (value == null)
-			{
-				stateData.getStateData().put(keyField, valueField);
-				stateData.save(microStreamStorageManager);
-				LOG.debug("Updated state");
-			}
-			
-			LOG.debug("State data:");
-			for (Entry<String, String> oneEntry: stateData.getStateData().entrySet())
-				LOG.debug(oneEntry.getKey() + " => " + oneEntry.getValue());
-		}
-	}
-	
-	public Tester(EmbeddedStorageManager embeddedStorageManager, StateData stateData)
-	{
-		microStreamStorageManager = embeddedStorageManager;
-		this.stateData = stateData;
-		LOG.debug("State data:");
-		for (Entry<String, String> oneEntry: stateData.getStateData().entrySet())
-			LOG.debug(oneEntry.getKey() + " => " + oneEntry.getValue());
 	}
 	
 	@Override
 	public void run(String... args) throws Exception
 	{
-		LOG.info("MicroStreamTester started successfully");
-	}
-	
-	@RequestMapping(name = "ping", method = RequestMethod.GET, path = { "/ping" })
-	public String ping()
-	{
-		XThreads.executeSynchronized(new StateUpdater("key-" + System.currentTimeMillis(), "value-" + Math.random()));
+		final Set<String> stateDataSet = stateDataField.getStateData();
 		
-		return "Updated embedded storage";
+		String randomString;
+		
+		System.out.println("MicroStreamTester started successfully");
+		
+		for (int index = 0; index < NUM_ADDED_ENTRIES; index++)
+		{
+			randomString = "randomString-" + (int) (Math.floor(Math.random() * 1000));
+			stateDataSet.add(randomString);
+			System.out.println("Added string \"" + randomString + "\" to persistent state data");
+		}
+		
+		stateDataField.save();
+		
+		System.out.println("Generated " +  NUM_ADDED_ENTRIES + " random strings and persisted them with MicroStream");
+		
+		System.exit(0);
 	}
 
 	@PreDestroy
 	public void shutdown() 
 	{
-		microStreamStorageManager.shutdown();
-	
-		LOG.info("MicroStreamTester shutting down");
+		System.out.println("MicroStreamTester shutting down");
 	}
 	
 	public static void main(String[] args)

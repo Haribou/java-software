@@ -1,31 +1,42 @@
 package com.avaya.microstream;
 
-import java.util.HashMap;
+import java.util.Collections;
+import java.util.Set;
 
-import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import one.microstream.integrations.spring.boot.types.Storage;
-import one.microstream.storage.embedded.types.EmbeddedStorageManager;
+import one.microstream.storage.types.StorageManager;
 
 @Storage
-class StateData
+public class StateData
 {
-	private static final Logger LOG = Logger.getLogger(StateData.class);
+	private static final int MAX_NUM_SET_ENTRIES = 5;
 	
-	private final HashMap<String, String> stateDataField = new HashMap<>();
+	@Autowired
+	private transient StorageManager storageManager;
 	
-	StateData()
+	private Set<String> stateDataField;
+	
+	public StateData()
 	{
-		LOG.debug("Created StateData");
+		/** Works correctly when uncommenting the following line: repeat startup of this Spring Boot application loads the persisted data successfully. **/
+		// stateDataField = new HashSet<String>(); 
+		
+		/** Does not work correctly when uncommenting the following line: repeat startup of this Spring Boot application does not load persisted data - or data is not persisted in the first place **/
+		stateDataField = Collections.newSetFromMap(new LimitedSet(MAX_NUM_SET_ENTRIES));
+		
+		System.out.println("Created StateData");
 	}
 
-	public HashMap<String, String> getStateData()
+	public Set<String> getStateData()
 	{
 		return stateDataField;
 	}
 	
-	public void save(EmbeddedStorageManager storageManager)
+	public void save()
 	{
 		storageManager.store(stateDataField);
+		System.out.println("Persisted state data with " + stateDataField.size() + " entries");
 	}
 }
