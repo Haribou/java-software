@@ -449,5 +449,16 @@
 0000000000001000065 java.util.Collections$EmptySet{}
 0000000000001000066 java.util.Collections$EmptyMap{}
 0000000000001000067 com.avaya.microstream.StateData{
-	java.util.HashMap com.avaya.microstream.StateData#stateDataField,
+	java.util.Set com.avaya.microstream.StateData#stateDataField,
+}
+0000000000001000068 java.util.Set{}
+0000000000001000069 java.util.Collections$SetFromMap{
+	java.util.Map java.util.Collections$SetFromMap#m,
+}
+0000000000001000070 java.util.Map{}
+0000000000001000071 com.avaya.microstream.LimitedSet{
+	int     java.util.HashMap               #threshold    ,
+	float   java.util.HashMap               #loadFactor   ,
+	boolean java.util.LinkedHashMap         #accessOrder  ,
+	int     com.avaya.microstream.LimitedSet#capacityField,
 }
