@@ -6,11 +6,13 @@ target/
 *.jar
 *.class
 *.key
-*.bat
 *.sh
 *.properties
 *.ckp
 *.db
 **/*.json
+logs/**
+stateData/**
+stateDataBackup/**
 
 
