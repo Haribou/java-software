@@ -11,7 +11,9 @@ target/
 *.db
 **/*.json
 logs/**
+stateData/
 stateData/**
+stateDataBackup/
 stateDataBackup/**
 
 

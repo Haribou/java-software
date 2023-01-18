@@ -13,7 +13,7 @@
 	</properties>
 
     <modules>
-		<module>Cap</module>
+		<!-- <module>Cap</module> -->
 		<module>MicroStreamTester</module>
     </modules>
 	
