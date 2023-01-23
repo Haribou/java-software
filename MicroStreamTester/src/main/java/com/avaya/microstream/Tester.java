@@ -1,7 +1,5 @@
 package com.avaya.microstream;
 
-import java.util.Set;
-
 import javax.annotation.PreDestroy;
 
 import org.springframework.boot.CommandLineRunner;
@@ -14,26 +12,25 @@ import org.springframework.context.annotation.Configuration;
 public class Tester implements CommandLineRunner
 {
 	private static final int NUM_ADDED_ENTRIES = 10;
-
-	private StateData stateDataField;
 	
-	public Tester(StateData stateData)
+	private StateData2 stateDataField;
+	
+	public Tester(StateData2 stateData)
 	{
 		stateDataField = stateData;
-		if (stateDataField.getStateData().size() == 0)
+		if (stateDataField.getLimitedSet().size() == 0)
 			System.out.println("Persistent file storage is empty");
 		else
 		{
 			System.out.println("Loaded state data from persistent file storage:");
-			for (String onePersistedEntry: stateDataField.getStateData())
-				System.out.println(onePersistedEntry);
+			System.out.println(stateData.getLimitedSet().getContent());
 		}
 	}
 	
 	@Override
 	public void run(String... args) throws Exception
 	{
-		final Set<String> stateDataSet = stateDataField.getStateData();
+		final LimitedSet2 stateDataSet = stateDataField.getLimitedSet();
 		
 		String randomString;
 		
